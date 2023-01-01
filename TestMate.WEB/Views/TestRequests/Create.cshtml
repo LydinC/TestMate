@@ -1,0 +1,46 @@
+﻿@model TestMate.Common.DataTransferObjects.TestRequests.TestRequestWebCreateDTO
+
+@{
+    ViewData["Title"] = "Create";
+}
+
+<h1>Create</h1>
+
+<h4>TestRequestWebCreateDTO</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form method="post" enctype="multipart/form-data">
+            <div>
+                <label for="AppiumTests">Appium Tests:</label><br />
+                <input type="file" name="AppiumTests" id="AppiumTests" /><br />
+                <span asp-validation-for="AppiumTests"></span><br />
+            </div>
+            <br />
+            <div>
+                <label for="ApplicationUnderTest">Application Under Test:</label><br />
+                <input type="file" name="ApplicationUnderTest" id="ApplicationUnderTest" /><br />
+                <span asp-validation-for="ApplicationUnderTest"></span><br />
+            </div>
+            <br />
+            <button type="submit" class="btn-primary">Submit</button>
+        </form>
+
+    </div>
+</div>
+
+@if (ViewBag.Message != null)
+{
+    <script type="text/javascript">
+        window.onload = function () {
+            alert("@ViewBag.Message");
+        };
+    </script>
+}
+<div>
+    <a asp-action="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
