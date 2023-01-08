@@ -5,6 +5,9 @@ using TestMate.API.JWTAuthentication;
 using TestMate.API.Profiles;
 using TestMate.API.Services;
 using TestMate.API.Settings;
+using Serilog.AspNetCore;
+using Serilog;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +21,19 @@ builder.Services.AddSingleton<UsersService>();
 builder.Services.AddSingleton<DevelopersService>();
 builder.Services.AddSingleton<TestRequestsService>();
 builder.Services.AddSingleton<JWTAuthenticationService>();
+
+
+//Logging Configuration
+builder.Services.AddLogging(loggingBuilder =>
+{
+    loggingBuilder.ClearProviders();
+    loggingBuilder.AddSerilog();
+});
+var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(configuration)
+    .CreateLogger();
+
 
 builder.Services.AddAutoMapper(typeof(TestRequestProfile));
 
@@ -59,7 +75,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
 
 //app.UseMiddleware<JWTTokenValidationMiddleware>();
 app.UseHttpsRedirection();

@@ -1,8 +1,8 @@
-using Microsoft.AspNetCore.Http.HttpResults;
 using MongoDB.Driver;
 using RabbitMQ.Client;
-using TestMate.Common.Models.TestRequests;
 using TestMate.Runner.BackgroundServices;
+using Serilog;
+
 
 namespace TestMate.Runner
 {
@@ -10,14 +10,21 @@ namespace TestMate.Runner
     {
         static void Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
+            try
+            {
+                CreateHostBuilder(args).Build().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"An exception occurred while starting the host: {ex}");
+            }
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-        .ConfigureServices((hostContext, services) =>
+            .UseSerilog()
+            .ConfigureServices((hostContext, services) =>
                 {
-
                     // Settings for RabbitMQ Connection
                     var factory = new ConnectionFactory()
                     {
@@ -29,13 +36,21 @@ namespace TestMate.Runner
                     var connection = factory.CreateConnection();
                     var channel = connection.CreateModel();
 
-
-
                     var mongoClient = new MongoClient("mongodb://localhost:27017");
                     var mongoDatabase = mongoClient.GetDatabase("testframework_db");
 
 
-                    // Add the service
+                    //Logging Configuration
+                    var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+                    Log.Logger = new LoggerConfiguration()
+                        .ReadFrom.Configuration(configuration)
+                        .CreateLogger();
+
+                    //TODO: CancellationTokenSource cts = new CancellationTokenSource();
+
+
+                    // Add the services
+                    services.AddSingleton(Log.Logger);
                     services.AddSingleton(connection);
                     services.AddSingleton(channel);
                     services.AddHostedService<RunnerService>();

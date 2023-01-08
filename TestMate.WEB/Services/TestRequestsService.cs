@@ -10,24 +10,25 @@ namespace TestMate.WEB.Services
     public class TestRequestsService : ITestRequestsService
     {
         private readonly HttpClient _client;
-        private string BaseAddress;
+        private readonly ILogger<TestRequestsService> _logger;
+        private readonly string _baseAddress = new Uri("https://localhost:7112/api/testrequests").ToString();
 
-        public TestRequestsService(HttpClient client)
+        public TestRequestsService(HttpClient client, ILogger<TestRequestsService> logger)
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
-            BaseAddress = _client.BaseAddress.ToString();
+            _logger = logger;
         }
 
         public async Task<IEnumerable<TestRequest>> GetAllTestRequests()
         {
-            var response = await _client.GetAsync(BaseAddress);
+            var response = await _client.GetAsync(_baseAddress);
 
             return await response.ReadContentAsync<List<TestRequest>>();
         }
 
         public async Task<TestRequest> GetTestRequestDetails(string username)
         {
-            var response = await _client.GetAsync(BaseAddress + "/" + username);
+            var response = await _client.GetAsync(_baseAddress + "/" + username);
 
             return await response.ReadContentAsync<TestRequest>();
         }
@@ -79,7 +80,7 @@ namespace TestMate.WEB.Services
                 ApplicationUnderTest = ApplicationUnderTestPath
             };
 
-            var response = await _client.PostAsJsonAsync(BaseAddress + "/create", testRequestCreateDTO);
+            var response = await _client.PostAsJsonAsync(_baseAddress + "/create", testRequestCreateDTO);
 
             return new TestRequestWebCreateResult { Success = true };
 
@@ -94,7 +95,7 @@ namespace TestMate.WEB.Services
 
         public async Task<TestRequest> UpdateTestRequest(string id, TestRequest updatedTestRequest)
         {
-            var response = await _client.PutAsJsonAsync(BaseAddress + "/update", updatedTestRequest);
+            var response = await _client.PutAsJsonAsync(_baseAddress + "/update", updatedTestRequest);
 
             return await response.ReadContentAsync<TestRequest>();
         }

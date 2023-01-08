@@ -7,10 +7,12 @@ namespace TestMate.WEB.Controllers
     {
 
         private readonly IUsersService _service;
+        private readonly ILogger<UsersController> _logger;
 
-        public UsersController(IUsersService service)
+        public UsersController(IUsersService service, ILogger<UsersController> logger)
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
+            _logger = logger;
         }
 
         public IActionResult Index()

@@ -12,10 +12,11 @@ namespace TestMate.WEB.Controllers
     public class DevelopersController : Controller
     {
         private readonly IDevelopersService _service;
-
-        public DevelopersController(IDevelopersService service)
+        private readonly ILogger<DevelopersController> _logger;
+        public DevelopersController(IDevelopersService service, ILogger<DevelopersController> logger)
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
+            _logger = logger;   
         }
 
         public IActionResult Index()

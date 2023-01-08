@@ -8,24 +8,25 @@ namespace TestMate.WEB.Services
     public class UsersService : IUsersService
     {
         private readonly HttpClient _client;
-        private string BaseAddress;
+        private readonly ILogger<UsersService> _logger;
+        private readonly string _baseAddress = new Uri("https://localhost:7112/api/users").ToString();
 
-        public UsersService(HttpClient client)
+        public UsersService(HttpClient client, ILogger<UsersService> logger)
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
-            BaseAddress = _client.BaseAddress.ToString();
+            _logger = logger;
         }
 
         public async Task<IEnumerable<User>> GetAllUserDetails()
         {
-            var response = await _client.GetAsync(BaseAddress);
+            var response = await _client.GetAsync(_baseAddress);
 
             return await response.ReadContentAsync<List<User>>();
         }
 
         public async Task<User> GetUserDetails(string username)
         {
-            var response = await _client.GetAsync(BaseAddress + "/" + username);
+            var response = await _client.GetAsync(_baseAddress + "/" + username);
 
             return await response.ReadContentAsync<User>();
         }

@@ -9,11 +9,12 @@ namespace TestMate.WEB.Controllers
     {
         private readonly ITestRequestsService _service;
         private readonly IWebHostEnvironment _webHostEnvironment;
-
-        public TestRequestsController(ITestRequestsService service, IWebHostEnvironment webHostEnvironment)
+        private readonly ILogger<TestRequestsController> _logger;
+        public TestRequestsController(ITestRequestsService service, IWebHostEnvironment webHostEnvironment, ILogger<TestRequestsController> logger)
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
             _webHostEnvironment = webHostEnvironment;
+            _logger = logger;   
         }
 
         public IActionResult Index()
@@ -39,6 +40,7 @@ namespace TestMate.WEB.Controllers
         [Route("TestRequests/Create")]
         public IActionResult Create()
         {
+            _logger.LogInformation("Navigated to Create");
             return View();
         }
 
@@ -47,7 +49,11 @@ namespace TestMate.WEB.Controllers
         [Route("TestRequests/Create")]
         public async Task<IActionResult> Create(TestRequestWebCreateDTO testRequestWebCreateDTO)
         {
+
+            _logger.LogInformation("Called Create method");
+
             if (!ModelState.IsValid) {
+                _logger.LogError("Invalid Model!");
                 return View(testRequestWebCreateDTO);
             }
 
