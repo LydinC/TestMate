@@ -1,6 +1,5 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
 namespace TestMate.Common.Models.Developers
@@ -9,7 +8,7 @@ namespace TestMate.Common.Models.Developers
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string? Id { get; set; }
+        public string Id { get; set; }
 
         [Required(ErrorMessage = "First Name is required")]
         public string FirstName { get; set; } = null!;
@@ -29,10 +28,11 @@ namespace TestMate.Common.Models.Developers
                            ErrorMessage = "Please enter a valid username.")]
         public string Username { get; set; } = null!;
 
-        [Required]
+        [Required(ErrorMessage = "Password is required")]
         public string Password { get; set; } = null!;
 
-        public Boolean? IsActive { get; set; } = false;
+        [Required]
+        public Boolean IsActive { get; set; }
 
     }
 }

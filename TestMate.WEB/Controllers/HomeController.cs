@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
+using TestMate.WEB.Helpers;
 using TestMate.WEB.Models;
 
 namespace TestMate.WEB.Controllers
@@ -15,10 +16,30 @@ namespace TestMate.WEB.Controllers
 
         public IActionResult Index()
         {
-            return View();
+            return RedirectToAction("Login", "Home");
+        }
+        public IActionResult Login()
+        {
+            string? auth_token;
+            Request.Cookies.TryGetValue("auth_token", out auth_token);
+            if (auth_token != null)
+            {
+                return RedirectToAction("Details", "Developers");
+            }
+            else 
+            {
+                return View();
+            }
         }
 
-        public IActionResult Privacy()
+        public IActionResult SignOut()
+        {
+            HttpContext.Session.Clear();
+            Response.Cookies.Delete("auth_token");
+            return RedirectToAction("Login");
+        }
+
+        public IActionResult AboutUs()
         {
             return View();
         }

@@ -1,9 +1,12 @@
-﻿using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
+﻿
+using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+using TestMate.Common.DataTransferObjects.APIResponse;
+using TestMate.Common.Enums;
 
-namespace TestMate.API.JWTAuthentication;
+namespace TestMate.API.Services;
 
 public class JWTAuthenticationService
 {
@@ -16,23 +19,23 @@ public class JWTAuthenticationService
 
     public string GenerateJWTToken(string username)
     {
-        // Get JWT Authentication properties from configuration
+        //Get JWT Authentication properties from configuration
         var secretKey = _configuration["JWTAuthentication:SecretKey"];
         var issuer = _configuration["JWTAuthentication:Issuer"];
         var audience = _configuration["JWTAuthentication:Audience"];
 
-        // Set the expiry time for the JWT
         var expiryTime = DateTime.UtcNow.AddMinutes(30);
 
-        // Set the claims for the JWT
+        //Set the claims for the JWT
         var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, username),
+            new Claim(JwtRegisteredClaimNames.Name, username),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(JwtRegisteredClaimNames.Exp, expiryTime.ToString())
         };
 
-        // Generate the JWT
+        //Generate the JWT
         var token = new JwtSecurityToken(
             issuer: issuer,
             audience: audience,
@@ -41,13 +44,14 @@ public class JWTAuthenticationService
             expires: expiryTime
         );
 
-        // Return the JWT as a string
+        //Return the JWT as a string to be passed to client
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public ClaimsPrincipal ValidateJWTToken(string token)
-    {
 
+    //Method not required as the JWT Bearer authentication middleware is being used and configured in startup program class
+    public APIResponse<string> ValidateJWTToken(string token)
+    {
         // Get JWT Authentication properties from configuration
         var secretKey = _configuration["JWTAuthentication:SecretKey"];
         var issuer = _configuration["JWTAuthentication:Issuer"];
@@ -67,25 +71,23 @@ public class JWTAuthenticationService
 
         try
         {
-            // Validate the JWT
             var claimsPrincipal = new JwtSecurityTokenHandler().ValidateToken(token, validationParameters, out _);
-
-            return claimsPrincipal;
+            return new APIResponse<string>(Status.Ok, "Token is Valid!");
         }
         catch (SecurityTokenExpiredException)
         {
-            // The JWT has expired
-            return null;
+            return new APIResponse<string>(Status.Error, "Expired Token!");
         }
         catch (SecurityTokenInvalidSignatureException)
         {
-            // The JWT has an invalid signature
-            return null;
+            return new APIResponse<string>(Status.Error, "Invalid Signature!");
         }
         catch (SecurityTokenException)
         {
-            // The JWT is invalid for other reasons
-            return null;
+            return new APIResponse<string>(Status.Error, "Securty Token Exception!");
+        }
+        catch (Exception ex) { 
+            return new APIResponse<string>(Status.Error, ex.Message);
         }
     }
 }

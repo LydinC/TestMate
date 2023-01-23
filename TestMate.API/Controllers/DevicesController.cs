@@ -32,7 +32,7 @@ public class DevicesController : ControllerBase
         return device;
     }
 
-    [HttpPost("register")]
+    [HttpPost("Register")]
     public async Task<IActionResult> Post([FromBody] Device newDevice)
     {
         if (newDevice.IMEI.Length != 15)

@@ -1,7 +1,6 @@
-using MongoDB.Driver;
 using RabbitMQ.Client;
-using TestMate.Runner.BackgroundServices;
 using Serilog;
+using TestMate.Runner.BackgroundServices;
 
 
 namespace TestMate.Runner
@@ -36,9 +35,8 @@ namespace TestMate.Runner
                     var connection = factory.CreateConnection();
                     var channel = connection.CreateModel();
 
-                    var mongoClient = new MongoClient("mongodb://localhost:27017");
-                    var mongoDatabase = mongoClient.GetDatabase("testframework_db");
-
+                    //var mongoClient = new MongoClient("mongodb://localhost:27017");
+                    //var mongoDatabase = mongoClient.GetDatabase("testframework_db");
 
                     //Logging Configuration
                     var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
@@ -47,7 +45,6 @@ namespace TestMate.Runner
                         .CreateLogger();
 
                     //TODO: CancellationTokenSource cts = new CancellationTokenSource();
-
 
                     // Add the services
                     services.AddSingleton(Log.Logger);

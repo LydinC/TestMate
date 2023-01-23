@@ -1,22 +1,20 @@
-﻿
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.DataTransferObjects.Developers;
-using TestMate.Common.Models.Developers;
-using TestMate.WEB.Models;
-using TestMate.WEB.Services.Interfaces;
+using TestMate.WEB.Helpers;
 
 namespace TestMate.WEB.Controllers
 {
     public class DevelopersController : Controller
     {
-        private readonly IDevelopersService _service;
+        private readonly HttpClient _client;
         private readonly ILogger<DevelopersController> _logger;
-        public DevelopersController(IDevelopersService service, ILogger<DevelopersController> logger)
+
+        public DevelopersController(IHttpClientFactory clientFactory, ILogger<DevelopersController> logger)
         {
-            _service = service ?? throw new ArgumentNullException(nameof(service));
-            _logger = logger;   
+            _client = clientFactory.CreateClient("DevelopersClient");
+           
+            _logger = logger;
         }
 
         public IActionResult Index()
@@ -24,22 +22,79 @@ namespace TestMate.WEB.Controllers
             return View();
         }
 
+
+        [HttpPost]
+        [Route("Developers/Login")]
+        public async Task<IActionResult> Login(DeveloperLoginDTO developerLoginDTO)
+        {
+            if (ModelState.IsValid)
+            {
+                var response = await _client.PostAsJsonAsync<DeveloperLoginDTO>(_client.BaseAddress + "/Login", developerLoginDTO);
+
+                var result = await response.ReadContentAsync<APIResponse<DeveloperLoginResultDTO>>();
+
+                if (result.Success)
+                {
+                    string tokenString = result.Data.Token;
+                    
+                    HttpContext.Session.SetString("Token", tokenString);
+
+                    //Storing JWT token in cookie
+                    Response.Cookies.Append("auth_token", tokenString, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        Expires = DateTime.UtcNow.AddMinutes(15)
+                    });
+
+                    return RedirectToAction("Details", new { Username = developerLoginDTO.Username });
+                }
+                else
+                {
+                    TempData["Error"] = result.Message;
+                    return RedirectToAction("Index", "Home");
+                }
+            }
+            return RedirectToAction("Index", "Home");
+        }
+
+
         [Route("Developers")]
         public async Task<IActionResult> Developers()
         {
-            var developers = await _service.GetAllDeveloperDetails();
-            return View(developers);
+            var response = await _client.GetAsync("Developers");
+            var result = await response.ReadContentAsync<APIResponse<List<DeveloperDetailsDTO>>>();
+
+            if (result.Success)
+            {
+                return View(result.Data);
+            }
+            else
+            {
+                TempData["Error"] = result.Message;
+                return View();
+            }
         }
-        
-        [Route("Developers/{username}")]
-        public async Task<IActionResult> DeveloperDetails(string username)
+
+        [Route("Developers/Details")]
+        public async Task<IActionResult> Details()
         {
-            var developers = await _service.GetDeveloperDetails(username);
 
-            return View(developers);
+            var response = await _client.GetAsync(_client.BaseAddress + "/Details");
+            var result = await response.ReadContentAsync<APIResponse<DeveloperDetailsDTO>>();
+
+            if (result.Success)
+            {
+                var developer = result.Data;
+                return View(developer);
+            }
+            else
+            {
+                TempData["Error"] = result.Message;
+                return View();
+            }
         }
 
-        
         [Route("Developers/Register")]
         public IActionResult Register()
         {
@@ -47,62 +102,32 @@ namespace TestMate.WEB.Controllers
         }
 
         [HttpPost]
-        [Route("Developers/RegisterDeveloper")]
-        public async Task<IActionResult> RegisterDeveloper(Developer newDeveloperDetails)
+        [Route("Developers/Register")]
+        public async Task<IActionResult> Register(DeveloperRegisterDTO developer)
         {
-            //TODO: FIX METHOD
-            if (ModelState.IsValid)
+            var response = await _client.PostAsJsonAsync<DeveloperRegisterDTO>(_client.BaseAddress + "/Register", developer);
+            var result = await response.ReadContentAsync<APIResponse<DeveloperRegisterDTO>>();
+
+            if (result.Success)
             {
-                var developer = await _service.RegisterDeveloper(newDeveloperDetails);
+                TempData["Success"] = result.Message;
+                return RedirectToAction("Index", "Home");
             }
-            return View();
-            
-        }
-
-
-        [HttpPost]
-        [AllowAnonymous]
-        [Route("Developers/Login")]
-        public async Task<IActionResult> Login(DeveloperLoginDTO developerLoginDTO)
-        {
-            if (ModelState.IsValid)
+            else
             {
-                var result = await _service.Login(developerLoginDTO);
-
-                if (result.Success)
-                {
-                    TempData["message"] = "Login Successful!";
-
-                    //Login successfull
-                    HttpContext.Session.SetString("Token", result.Token);
-
-                    Response.Cookies.Append("auth_token", result.Token, new CookieOptions
-                    {
-                        HttpOnly = true,
-                        Secure = true
-                    });
-
-                    // Redirect the user to the dashboard
-                    Response.Redirect("/Developers/DeveloperDetails");
-                }
-                else
-                {
-                    //Login Failed
-                    TempData["message"] = "Login Failed! Please Try Again!";
-                    
-                }
+                TempData["Error"] = result.Message;
+                return View();
             }
-            return View("DeveloperDetails", "Developers" );
         }
 
-        [HttpPut]
-        [Route("Developers/Edit/{username}")]
-        public async Task<IActionResult> Edit(string username, Developer updatedDeveloper)
-        {
-            var developer = await _service.UpdateDeveloperDetails(username, updatedDeveloper);
-            return View(developer);
-        }
-    
-    
+        //[HttpPut]
+        //[Route("Developers/Edit/{username}")]
+        //public async Task<IActionResult> Edit(string username, Developer updatedDeveloper)
+        //{
+        //    var developer = await _client.UpdateDeveloperDetails(username, updatedDeveloper);
+        //    return View(developer);
+        //}
+
+
     }
 }

@@ -17,6 +17,18 @@
             @Html.DisplayFor(model => model.Id)
         </dd>
         <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.RequestId)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.RequestId)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Status)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.Status)
+        </dd>
+        <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Requestor)
         </dt>
         <dd class = "col-sm-10">
@@ -35,20 +47,25 @@
             @Html.DisplayFor(model => model.ApplicationUnderTest)
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.AppiumTests)
+            @Html.DisplayNameFor(model => model.TestSolutionPath)
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.AppiumTests)
+            @Html.DisplayFor(model => model.TestSolutionPath)
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Status)
+            @Html.DisplayNameFor(model => model.AppiumOptions)
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Status)
+            @Html.DisplayFor(model => model.AppiumOptions)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.ContextConfiguration)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.ContextConfiguration)
         </dd>
     </dl>
 </div>
 <div>
-    @Html.ActionLink("Edit", "Edit", new { /* id = Model.PrimaryKey */ }) |
-    <a asp-action="Index">Back to List</a>
+    <a asp-action="TestRequests">Back to List</a>
 </div>

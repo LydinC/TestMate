@@ -1,12 +1,5 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
-using MongoDB.Bson;
-using System;
-using System.Collections.Generic;
+﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.ComponentModel;
 
 namespace TestMate.Common.DataTransferObjects.Developers
 {
@@ -21,8 +14,7 @@ namespace TestMate.Common.DataTransferObjects.Developers
         public string LastName { get; set; } = null!;
 
         [Required(ErrorMessage = "Email is required")]
-        [RegularExpression(@"\A(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\Z",
-                           ErrorMessage = "Please enter a valid email address")]
+        [EmailAddress]
         public string Email { get; set; } = null!;
 
         [Required(ErrorMessage = "Username is required")]
@@ -30,7 +22,7 @@ namespace TestMate.Common.DataTransferObjects.Developers
                            ErrorMessage = "Please enter a valid username.")]
         public string Username { get; set; } = null!;
 
-        [ReadOnly(true)]
+        [PasswordPropertyText]
         public string Password { get; set; } = null!;
 
         [ReadOnly(true)]

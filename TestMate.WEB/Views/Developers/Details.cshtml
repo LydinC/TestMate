@@ -1,13 +1,12 @@
-﻿@model TestMate.Common.Models.Developers.Developer
+﻿@model TestMate.Common.DataTransferObjects.Developers.DeveloperDetailsDTO
 
 @{
-    ViewData["Title"] = "DeveloperDetails";
+    ViewData["Title"] = "Details";
 }
 
-<h1>DeveloperDetails</h1>
+<h1>Account Details</h1>
 
 <div>
-    <h4>Developer</h4>
     <hr />
     <dl class="row">
         <dt class = "col-sm-2">
@@ -40,12 +39,12 @@
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.Username)
         </dd>
-        <dt class = "col-sm-2">
+@*        <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Password)
-        </dt>
-        <dd class = "col-sm-10">
+        </dt>*@
+@*        <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.Password)
-        </dd>
+        </dd>*@
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.IsActive)
         </dt>
@@ -54,7 +53,4 @@
         </dd>
     </dl>
 </div>
-<div>
-    @Html.ActionLink("Edit", "Edit", new {  }) |
-    <a asp-action="Index">Back to List</a>
-</div>
+

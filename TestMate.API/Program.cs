@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Serilog;
 using System.Text;
-using TestMate.API.JWTAuthentication;
 using TestMate.API.Profiles;
 using TestMate.API.Services;
 using TestMate.API.Settings;
-using Serilog.AspNetCore;
-using Serilog;
-using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +34,8 @@ Log.Logger = new LoggerConfiguration()
 
 
 builder.Services.AddAutoMapper(typeof(TestRequestProfile));
+builder.Services.AddAutoMapper(typeof(DeveloperProfile));
+
 
 builder.Services.AddControllers()
     .AddJsonOptions(
@@ -47,25 +47,47 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = "issuer",
-            ValidAudience = "audience",
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("thisisalongkeyforjwtauthentication"))
+            ValidateIssuer = true, ValidateAudience = true, ValidateLifetime = true, ValidateIssuerSigningKey = true,
+            ValidIssuer = configuration["JWTAuthentication:Issuer"],
+            ValidAudience = configuration["JWTAuthentication:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JWTAuthentication:SecretKey"]))
         };
-        //TODO: Update the above to get values of issuer, audience and secret key from ICONFIGURATION
     });
 
 
-//Adding scopes to implement [Authorize]
+//Not required any more as JWT Authentication Default bearer is being used as defined above
 //builder.Services.AddScoped<JWTAuthenticationService>();
 //builder.Services.AddScoped<JWTTokenValidationMiddleware>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(opt =>
+{
+    opt.SwaggerDoc("v1", new OpenApiInfo { Title = "TestMate.API", Version = "v1" });
+    opt.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Description = "Please enter token",
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        BearerFormat = "JWT",
+        Scheme = "bearer"
+    });
+    opt.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type=ReferenceType.SecurityScheme,
+                    Id="Bearer"
+                }
+            },
+            new string[]{}
+        }
+    });
+});
 
 var app = builder.Build();
 
@@ -79,6 +101,7 @@ if (app.Environment.IsDevelopment())
 //app.UseMiddleware<JWTTokenValidationMiddleware>();
 app.UseHttpsRedirection();
 
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 

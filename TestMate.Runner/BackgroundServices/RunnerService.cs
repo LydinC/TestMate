@@ -1,23 +1,14 @@
-﻿using TestMate.Common.Models.TestRequests;
-using System;
-using System.Text;
-using Microsoft.Extensions.Hosting;
-using MongoDB.Driver;
-using RabbitMQ.Client;
-using System.Threading.Tasks;
-using AutoMapper.Internal;
+﻿using MongoDB.Driver;
 using Newtonsoft.Json;
-using ZstdSharp.Unsafe;
-using System.Threading.Channels;
+using OpenQA.Selenium.Appium;
+using OpenQA.Selenium.Appium.Service;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.Net.Sockets;
-using System.Net;
-using OpenQA.Selenium.Appium.Android;
-using MongoDB.Driver.Core.Bindings;
-using System.Threading;
 using System.Diagnostics;
-using System.ServiceModel.Channels;
-
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using TestMate.Common.Models.TestRequests;
 
 namespace TestMate.Runner.BackgroundServices
 {
@@ -26,6 +17,7 @@ namespace TestMate.Runner.BackgroundServices
         private readonly ILogger<RunnerService> _logger;
         private readonly IConnection _connection;
         private readonly IModel _channel;
+        private readonly IConfiguration _configuration;
         //private readonly CancellationToken _cancellationToken;
 
 
@@ -34,10 +26,12 @@ namespace TestMate.Runner.BackgroundServices
         string routingKey = "testRequestKey";
 
 
-        public RunnerService(ILogger<RunnerService> logger, IConnection connection, IModel channel) {
-            _logger = logger;    
+        public RunnerService(ILogger<RunnerService> logger, IConnection connection, IModel channel, IConfiguration configuration)
+        {
+            _logger = logger;
             _connection = connection;
             _channel = channel;
+            _configuration = configuration;
             //_cancellationToken = cancellationToken;
         }
 
@@ -45,6 +39,7 @@ namespace TestMate.Runner.BackgroundServices
         {
 
             _logger.LogInformation("Starting RunnerService");
+
             try
             {
                 _logger.LogInformation("Setting up RabbitMQ");
@@ -79,7 +74,6 @@ namespace TestMate.Runner.BackgroundServices
 
 
             /* CONSUMER */
-            //setup the consumer
             var consumer = new EventingBasicConsumer(_channel);
             consumer.Received += (model, ea) =>
             {
@@ -91,10 +85,14 @@ namespace TestMate.Runner.BackgroundServices
 
                 // Process the message
                 _logger.LogInformation("Message received: " + message);
+
+                // Deserialize the message into a TestRequest object
+                TestRequest testRequest = DeserializeTestRequest(message);
+
                 int availablePort = FindAvailablePort;
 
                 // Run the Appium tests in a separate thread
-                var thread = new Thread(() => RunAppiumTests(cancellationToken, availablePort));
+                var thread = new Thread(() => ProcessTestRequest(cancellationToken, testRequest, availablePort));
                 _logger.LogInformation("Setting up new thread to process message " + thread.Name);
                 thread.Start();
 
@@ -145,52 +143,52 @@ namespace TestMate.Runner.BackgroundServices
 
                         _logger.LogInformation("Published successfully!");
                     }
-                
+
                 });
             }
 
 
 
-                ////CONSUMER
+            ////CONSUMER
 
-                
-                //consumer.Received += async (model, ea) =>
-                //{
-                //    var body = ea.Body.ToArray();
-                //    string message = Encoding.UTF8.GetString(body);
-                //    Console.WriteLine("Received message: {0}", message);
 
-                //    // Deserialize the message into a TestRequest object
-                //    TestRequest testRequest = DeserializeTestRequest(message);
+            //consumer.Received += async (model, ea) =>
+            //{
+            //    var body = ea.Body.ToArray();
+            //    string message = Encoding.UTF8.GetString(body);
+            //    Console.WriteLine("Received message: {0}", message);
 
-                //    // Set up the Appium connection and execute the tests
-                //    /*var appiumOptions = new AppiumOptions();
-                //    appiumOptions.AddAdditionalCapability("platformName", testRequest.PlatformName);
-                //    appiumOptions.AddAdditionalCapability("deviceName", testRequest.DeviceName);
-                //    appiumOptions.AddAdditionalCapability("app", testRequest.AppPath);
+            //    // Deserialize the message into a TestRequest object
+            //    TestRequest testRequest = DeserializeTestRequest(message);
 
-                //    using var appiumDriver = new AndroidDriver<AndroidElement>(new Uri("http://localhost:4723/wd/hub"), appiumOptions);
-                //    var testResult = await ExecuteTests(appiumDriver);
+            //    // Set up the Appium connection and execute the tests
+            //    /*var appiumOptions = new AppiumOptions();
+            //    appiumOptions.AddAdditionalCapability("platformName", testRequest.PlatformName);
+            //    appiumOptions.AddAdditionalCapability("deviceName", testRequest.DeviceName);
+            //    appiumOptions.AddAdditionalCapability("app", testRequest.AppPath);
 
-                //    // Publish the test result to the "appiumresults" exchange
-                //    var testResultJson = JsonConvert.SerializeObject(testResult);
-                //    var testResultBody = Encoding.UTF8.GetBytes(testResultJson);
-                //    _channel.BasicPublish("appiumresults", "", null, testResultBody);
-                //    Console.WriteLine("Sent message: {0}", testResultJson);
-                //    */
+            //    using var appiumDriver = new AndroidDriver<AndroidElement>(new Uri("http://localhost:4723/wd/hub"), appiumOptions);
+            //    var testResult = await ExecuteTests(appiumDriver);
 
-                //    //ACKNOWLEDGEMENTS?????
-                //    // Acknowledge the message
-                //    _channel.BasicAck(ea.DeliveryTag, multiple: false);
+            //    // Publish the test result to the "appiumresults" exchange
+            //    var testResultJson = JsonConvert.SerializeObject(testResult);
+            //    var testResultBody = Encoding.UTF8.GetBytes(testResultJson);
+            //    _channel.BasicPublish("appiumresults", "", null, testResultBody);
+            //    Console.WriteLine("Sent message: {0}", testResultJson);
+            //    */
 
-                //};
-                //_channel.BasicConsume(queueName, true, consumer);
-                //// Start the consumer in a separate task
-                //var consumerTask = Task.Factory.StartNew(() =>
-                //{
-                //    _channel.BasicConsume(queueName, true, consumer);
-                //}, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            
+            //    //ACKNOWLEDGEMENTS?????
+            //    // Acknowledge the message
+            //    _channel.BasicAck(ea.DeliveryTag, multiple: false);
+
+            //};
+            //_channel.BasicConsume(queueName, true, consumer);
+            //// Start the consumer in a separate task
+            //var consumerTask = Task.Factory.StartNew(() =>
+            //{
+            //    _channel.BasicConsume(queueName, true, consumer);
+            //}, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
         }
 
         static string SerializeTestRequest(TestRequest testRequest)
@@ -199,7 +197,7 @@ namespace TestMate.Runner.BackgroundServices
             return JsonConvert.SerializeObject(testRequest);
         }
 
-        static TestRequest? DeserializeTestRequest(string message)
+        static TestRequest DeserializeTestRequest(string message)
         {
             // Serialize the test request object to a string
             return JsonConvert.DeserializeObject<TestRequest>(message);
@@ -210,9 +208,8 @@ namespace TestMate.Runner.BackgroundServices
         {
             get
             {
-                // Find an available port by trying to bind a socket to a series of ports and seeing which ones are available
-                // This is just one way to find an available port - you could also use other methods
-
+                //TODO: might require using .AnyFreePort in appium itself?
+                // Finding an available port by trying to bind a socket to a series of ports and seeing which ones are available
                 _logger.LogInformation("Searching for an available port ... ");
 
                 var port = 4723; // Appium default port
@@ -235,41 +232,67 @@ namespace TestMate.Runner.BackgroundServices
             }
         }
 
-        private void RunAppiumTests(CancellationToken cancellationToken, int port) {
+        private void ProcessTestRequest(CancellationToken cancellationToken, TestRequest testRequest, int port)
+        {
 
             // Set up the Appium connection and run the tests on the specified port
             _logger.LogInformation("Running Appium tests on port " + port);
 
-            var process = new Process();
-            process.StartInfo.FileName = @"C:\Program Files\NUnit.Console-3.15.2\bin\net6.0\nunit3-console.exe";
-            process.StartInfo.Arguments = "--tp Platform=Android --tp udid=1c6159173f057ece --tp port=0 \"C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\Appium Tests\\AppiumTests\\bin\\Debug\\net6.0\\AppiumTests.dll\"";
+            //Extract neccessary information from TestRequest
+            string requestNumber = testRequest.RequestId.ToString();
+            string testSolutionPath = testRequest.TestSolutionPath;
+            string appiumOptionsJSON = "{\"platformName\":\"iOS\",\"deviceName\":\"iPhone 8\"}"; //testRequest.AppiumOptions;
 
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.RedirectStandardError = true;
-            process.Start();
-
-            using (var outputReader = process.StandardOutput)
-            using (var errorReader = process.StandardError)
+            try
             {
-                while (!outputReader.EndOfStream || !errorReader.EndOfStream)
-                {
-                    if (!outputReader.EndOfStream)
-                    {
-                        string line = outputReader.ReadLine();
-                        Console.WriteLine(line);
-                    }
-
-                    if (!errorReader.EndOfStream)
-                    {
-                        string line = errorReader.ReadLine();
-                        Console.WriteLine(line);
-                    }
-                }
+                AppiumOptions appiumOptions = JsonConvert.DeserializeObject<AppiumOptions>(appiumOptionsJSON);
+                _logger.LogInformation($"AppiumOptions JSON of TestRequest {testRequest.Id} is valid!");
+            }
+            catch (JsonReaderException e)
+            {
+                _logger.LogError($"AppiumOptions of TestRequest {testRequest.Id} is not valid! Error: {e.Message}");
             }
 
+            //Start Appium Server
+            var appiumService = new AppiumServiceBuilder()
+                .WithIPAddress("0.0.0.0")
+                .UsingPort(port)
+                .WithLogFile(new FileInfo(string.Format("C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\{0}", requestNumber)))
+                .Build();
 
-            _logger.LogInformation("Disposing Process " + process.Id);
-            process.Dispose();
+            appiumService.Start();
+
+
+
+            //    using var appiumDriver = new AndroidDriver<AndroidElement>(new Uri("http://localhost:4723/wd/hub"), appiumOptions);
+            //    var testResult = await ExecuteTests(appiumDriver);
+
+
+            string fileName = @"C:\Program Files\NUnit.Console-3.15.2\bin\net6.0\nunit3-console.exe";
+            string arguments = string.Format(@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\Appium Tests\AppiumTests\bin\Debug\net6.0\AppiumTests.dll --work=""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{0}"" --out=""Out.txt"" --result=""Result.xml"" > ""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{0}\ConsoleOutput.txt""", requestNumber);
+
+            ProcessStartInfo startInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+
+
+            using (Process process = Process.Start(startInfo))
+            {
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+
+                process.WaitForExit();
+                _logger.LogInformation("Process " + process.Id + " exited with code " + process.ExitCode);
+                _logger.LogInformation("Process " + process.Id + " - Standard output: {0}", output);
+                _logger.LogInformation("Process " + process.Id + " - Standard error: {0}", error);
+
+            }
+
             // Run the tests
             //while (!cancellationToken.IsCancellationRequested)
             //{

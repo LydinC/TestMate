@@ -1,10 +1,10 @@
-﻿@model IEnumerable<TestMate.Common.Models.Developers.Developer>
+﻿@model IEnumerable<TestMate.Common.DataTransferObjects.Developers.DeveloperDetailsDTO>
 
 @{
     ViewData["Title"] = "Developers";
 }
 
-<h1>Developers</h1>
+<h1>All Developer Details</h1>
 
 <table class="table">
     <thead>
@@ -23,9 +23,6 @@
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.Username)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Password)
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.IsActive)
@@ -52,14 +49,7 @@
                 @Html.DisplayFor(modelItem => item.Username)
             </td>
             <td>
-                @Html.DisplayFor(modelItem => item.Password)
-            </td>
-            <td>
                 @Html.DisplayFor(modelItem => item.IsActive)
-            </td>
-            <td>
-                @Html.ActionLink("Edit", "Edit", new { username = item.Username }) |
-                @Html.ActionLink("Details", "Details", new { username = item.Username }) |
             </td>
         </tr>
 }

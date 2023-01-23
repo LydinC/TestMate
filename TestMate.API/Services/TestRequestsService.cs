@@ -2,8 +2,11 @@
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using TestMate.API.Settings;
+using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.DataTransferObjects.TestRequests;
 using TestMate.Common.Models.TestRequests;
+using TestMate.Common.Enums;
+using Microsoft.AspNetCore.Identity;
 
 namespace TestMate.API.Services
 {
@@ -17,43 +20,64 @@ namespace TestMate.API.Services
             var mongoClient = new MongoClient(databaseSettings.Value.ConnectionString);
             var mongoDatabase = mongoClient.GetDatabase(databaseSettings.Value.DatabaseName);
             _testRequestsCollection = mongoDatabase.GetCollection<TestRequest>(databaseSettings.Value.TestRequestsCollectionName);
-            _mapper = mapper;        
+            _mapper = mapper;
         }
 
-        //Returns all test requests
-        public async Task<List<TestRequest>> GetAsync() => await _testRequestsCollection.Find(_ => true).ToListAsync();
-
-
-        //Returns a test request by id or null if not found
-        public async Task<TestRequest?> GetAsync(string id) => await _testRequestsCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
-
-
-        //Creates a new test request
-        public async Task<TestRequestCreateResultDTO> CreateAsync(TestRequestCreateDTO testRequestCreateDTO)
+        public async Task<APIResponse<IEnumerable<TestRequest>>> GetTestRequests()
         {
-            TestRequest testRequest = _mapper.Map<TestRequest>(testRequestCreateDTO);
+            try
+            {
+                var testRequests = await _testRequestsCollection.Find(_ => true).ToListAsync();
+                return new APIResponse<IEnumerable<TestRequest>>(testRequests);
+            }
+            catch (Exception ex)
+            {
+                return new APIResponse<IEnumerable<TestRequest>>(Status.Error, ex.Message);
+            }
+        }
 
-            //TODO: if(testRequest.Requestor != //todo: user submitting the request?)
-            testRequest.Timestamp = DateTime.UtcNow;
-            testRequest.Status = "NEW";
-            testRequest.Requestor = "TEST"; //TODO: UPDATE TO ACTUAL LOGGED IN DEVELOPER?
-            await _testRequestsCollection.InsertOneAsync(testRequest);
-
-            return new TestRequestCreateResultDTO { Id = testRequest.Id };
+        
+        public async Task<APIResponse<TestRequest>> GetById(string id) {
+            try
+            {
+                var testRequest = await _testRequestsCollection.Find(x => x.Id == id).FirstAsync();
+                return new APIResponse<TestRequest>(testRequest);
+            }
+            catch (Exception ex)
+            {
+                return new APIResponse<TestRequest>(Status.Error, ex.Message);
+            }
             
         }
 
-        //Updates test request (by id) 
-        public async Task UpdateAsync(string id, TestRequest updatedTestRequest)
+        public async Task<APIResponse<TestRequestCreateResultDTO>> CreateAsync(TestRequestCreateDTO testRequestCreateDTO)
         {
-            await _testRequestsCollection.ReplaceOneAsync(x => x.Id == id, updatedTestRequest);
+
+            try
+            {
+                TestRequest testRequest = _mapper.Map<TestRequest>(testRequestCreateDTO);
+
+                testRequest.Requestor = "Requestor";//TODO: Refer to USER.IDENTITY?
+                await _testRequestsCollection.InsertOneAsync(testRequest);
+                return new APIResponse<TestRequestCreateResultDTO>(new TestRequestCreateResultDTO { Id = testRequest.Id });
+            }
+            catch (Exception ex)
+            {
+                return new APIResponse<TestRequestCreateResultDTO>(Status.Error, ex.Message);
+            }
         }
 
-        //Removes test request (by username)
-        public async Task RemoveAsync(string id)
-        {
-            await _testRequestsCollection.DeleteOneAsync(x => x.Id == id);
-        }
+        ////Updates test request (by id) 
+        //public async Task UpdateAsync(string id, TestRequest updatedTestRequest)
+        //{
+        //    await _testRequestsCollection.ReplaceOneAsync(x => x.Id == id, updatedTestRequest);
+        //}
+
+        ////Removes test request (by username)
+        //public async Task RemoveAsync(string id)
+        //{
+        //    await _testRequestsCollection.DeleteOneAsync(x => x.Id == id);
+        //}
 
     }
 }

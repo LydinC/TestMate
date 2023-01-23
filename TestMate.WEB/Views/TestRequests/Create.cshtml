@@ -4,42 +4,66 @@
     ViewData["Title"] = "Create";
 }
 
-<h1>Create</h1>
+<h1>Create a New Test Request</h1>
 
-<h4>TestRequestWebCreateDTO</h4>
+<h4>Test Request Form</h4>
 <hr />
 <div class="row">
     <div class="col-md-4">
         <form method="post" enctype="multipart/form-data">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <div>
-                <label for="AppiumTests">Appium Tests:</label><br />
-                <input type="file" name="AppiumTests" id="AppiumTests" /><br />
-                <span asp-validation-for="AppiumTests"></span><br />
+                <label for="TestSolution">Test Solution Package:</label><br />
+                <input type="file" name="TestSolution" id="TestSolution" /><br />
+                <span asp-validation-for="TestSolution"></span><br />
             </div>
-            <br />
+            <br>
             <div>
                 <label for="ApplicationUnderTest">Application Under Test:</label><br />
                 <input type="file" name="ApplicationUnderTest" id="ApplicationUnderTest" /><br />
                 <span asp-validation-for="ApplicationUnderTest"></span><br />
             </div>
-            <br />
+            <br>
+            <div class="form-group">
+                <label asp-for="SolutionExecutable" class="control-label"></label>
+                <input asp-for="SolutionExecutable" class="form-control" />
+                <span asp-validation-for="SolutionExecutable" class="text-danger"></span>
+            </div>
+            <br>
+            <div class="form-group">
+                <label asp-for="AppiumOptions" class="control-label"></label>
+                <input asp-for="AppiumOptions" class="form-control" />
+                <span asp-validation-for="AppiumOptions" class="text-danger"></span>
+            </div>
+            <br>
+            <div class="form-group">
+                <label asp-for="ContextConfiguration" class="control-label"></label>
+                <input asp-for="ContextConfiguration" class="form-control" />
+                <span asp-validation-for="ContextConfiguration" class="text-danger"></span>
+            </div>
+            <br>
             <button type="submit" class="btn-primary">Submit</button>
         </form>
 
     </div>
 </div>
 
+<div>
+    <a asp-action="TestRequests">Back to List</a>
+</div>
+
 @if (ViewBag.Message != null)
 {
-    <script type="text/javascript">
-        window.onload = function () {
-            alert("@ViewBag.Message");
-        };
-    </script>
+    <div class="alert alert-dark" role="alert">
+        @ViewBag.Message
+    </div>
+@*        <script type="text/javascript">
+            window.onload = function () {
+                alert("@viewbag.message");
+            };
+        </script>
+*@
 }
-<div>
-    <a asp-action="Index">Back to List</a>
-</div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}

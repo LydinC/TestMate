@@ -1,103 +1,139 @@
-﻿
-using System.Net.Http.Json;
-using TestMate.Common.DataTransferObjects.TestRequests;
-using TestMate.Common.Models.TestRequests;
-using TestMate.WEB.Helpers;
-using TestMate.WEB.Services.Interfaces;
-
-namespace TestMate.WEB.Services
+﻿namespace TestMate.WEB.Services
 {
-    public class TestRequestsService : ITestRequestsService
+    public class TestRequestsService
     {
-        private readonly HttpClient _client;
         private readonly ILogger<TestRequestsService> _logger;
         private readonly string _baseAddress = new Uri("https://localhost:7112/api/testrequests").ToString();
 
         public TestRequestsService(HttpClient client, ILogger<TestRequestsService> logger)
         {
-            _client = client ?? throw new ArgumentNullException(nameof(client));
             _logger = logger;
         }
 
-        public async Task<IEnumerable<TestRequest>> GetAllTestRequests()
-        {
-            var response = await _client.GetAsync(_baseAddress);
+        //    public async Task<IEnumerable<TestRequest>> GetAllTestRequests()
+        //    {
+        //        var response = await _client.GetAsync(_baseAddress);
 
-            return await response.ReadContentAsync<List<TestRequest>>();
-        }
+        //        return await response.ReadContentAsync<List<TestRequest>>();
+        //    }
 
-        public async Task<TestRequest> GetTestRequestDetails(string username)
-        {
-            var response = await _client.GetAsync(_baseAddress + "/" + username);
+        //    public async Task<TestRequest> GetTestRequestDetails(string username)
+        //    {
+        //        var response = await _client.GetAsync(_baseAddress + "/" + username);
 
-            return await response.ReadContentAsync<TestRequest>();
-        }
+        //        return await response.ReadContentAsync<TestRequest>();
+        //    }
 
 
-        public async Task<TestRequestWebCreateResult> CreateTestRequest(TestRequestWebCreateDTO newTestRequest)
-        {
+        //    public async Task<TestRequestWebCreateResult> CreateTestRequest(TestRequestWebCreateDTO newTestRequest)
+        //    {
 
-            //UPLOAD IFORMFILES TO CENTRAL LOCATION
-            //TODO: COnsider using _webHostEnvironment instead of hardcoded location
-            var testRequestID = GetUniqueTestRequestID();
-            var testRequestFolder = Path.Combine("C:/Users/lydin.camilleri/Desktop/Master's Code Repo", "Uploads", testRequestID);
+        //        //TODO: Consider using _webHostEnvironment instead of hardcoded location
+        //        string RequestID = Guid.NewGuid().ToString();
+        //        var defaultLocation = @"C:/Users/lydin.camilleri/Desktop/Master's Code Repo/Uploads";
 
-            if (newTestRequest.AppiumTests != null && newTestRequest.ApplicationUnderTest != null)
-            {
-                
-                if (!Directory.Exists(testRequestFolder))
-                {
-                    try
-                    {
-                        Directory.CreateDirectory(testRequestFolder);
-                        Directory.CreateDirectory(Path.Combine(testRequestFolder, "Appium"));
-                        Directory.CreateDirectory(Path.Combine(testRequestFolder, "APK"));
-                        newTestRequest.AppiumTests.CopyTo(new FileStream(Path.Combine(testRequestFolder, "Appium", newTestRequest.AppiumTests.FileName), FileMode.Create));
-                        newTestRequest.ApplicationUnderTest.CopyTo(new FileStream(Path.Combine(testRequestFolder, "APK", newTestRequest.ApplicationUnderTest.FileName), FileMode.Create));
-                    }
-                    catch (Exception ex)
-                    {
-                        return new TestRequestWebCreateResult { Success = false, Message = ex.ToString() };
-                    }
-                }
-                else
-                {
-                    return new TestRequestWebCreateResult { Success = false, Message = $"Directory with Test Request ID {testRequestID} already exists!" };
-                }
-            }
-            else {
-                return new TestRequestWebCreateResult { Success = false, Message = "AppiumTests or/and APK are null"};
-            }
+        //        var workingFolder = Path.Combine(defaultLocation, RequestID);
 
-            //IF SUCCESSFULL, CALL API LAYER WITH NEW TEST REQUEST AND PATHS TO THE UPLOADED FILES
+        //        if (!IsValidAppiumOptionsJson(newTestRequest.AppiumOptions)) {
+        //            _logger.LogError("Invalid AppiumOptions JSON, cannot be deserialized!");
+        //            return new TestRequestWebCreateResult { Success = false, Message = $"Appium Options is not a valid JSON!" };
+        //        }
+        //        if (!IsValidJson(newTestRequest.ContextConfiguration))
+        //        {
+        //            return new TestRequestWebCreateResult { Success = false, Message = $"Context Configuration is not a valid JSON!" };
+        //        }
 
-            var AppiumPath = Path.Combine(testRequestFolder, "Appium", newTestRequest.AppiumTests.FileName);
-            var ApplicationUnderTestPath = Path.Combine(testRequestFolder, "APK", newTestRequest.ApplicationUnderTest.FileName);
+        //        if (!Directory.Exists(workingFolder))
+        //        {
+        //            try
+        //            {
+        //                Directory.CreateDirectory(workingFolder);
+        //                Directory.CreateDirectory(Path.Combine(workingFolder, "Test Solution"));
+        //                Directory.CreateDirectory(Path.Combine(workingFolder, "Application Under Test"));
 
-            TestRequestCreateDTO testRequestCreateDTO = new TestRequestCreateDTO
-            {
-                AppiumTests = AppiumPath,
-                ApplicationUnderTest = ApplicationUnderTestPath
-            };
+        //                var TestSolutionPath = Path.Combine(workingFolder, "Test Solution", newTestRequest.TestSolution.FileName);
+        //                var ApplicationUnderTestPath = Path.Combine(workingFolder, "Application Under Test", newTestRequest.ApplicationUnderTest.FileName);
 
-            var response = await _client.PostAsJsonAsync(_baseAddress + "/create", testRequestCreateDTO);
+        //                using (var sourceStream = newTestRequest.TestSolution.OpenReadStream())
+        //                using (var destinationStream = File.Create(TestSolutionPath))
+        //                {
+        //                    sourceStream.CopyTo(destinationStream);
+        //                }
 
-            return new TestRequestWebCreateResult { Success = true };
+        //                using (var sourceStream = newTestRequest.ApplicationUnderTest.OpenReadStream())
+        //                using (var destinationStream = File.Create(ApplicationUnderTestPath))
+        //                {
+        //                    sourceStream.CopyTo(destinationStream);
+        //                }
 
-        }
+        //                ZipFile.ExtractToDirectory(TestSolutionPath, Path.GetDirectoryName(TestSolutionPath));
 
-        private string GetUniqueTestRequestID()
-        {
-            return DateTime.UtcNow.ToString("yyyy_MM_dd_hh_mm_ss")
-                      + "_"
-                      + Guid.NewGuid().ToString().Substring(0, 4);
-        }
+        //                TestRequestCreateDTO testRequestCreateDTO = new TestRequestCreateDTO
+        //                {
+        //                    TestSolutionPath = TestSolutionPath,
+        //                    ApplicationUnderTestPath = ApplicationUnderTestPath,
+        //                    AppiumOptions = newTestRequest.AppiumOptions,
+        //                    ContextConfiguration = newTestRequest.ContextConfiguration
+        //                };
 
-        public async Task<TestRequest> UpdateTestRequest(string id, TestRequest updatedTestRequest)
-        {
-            var response = await _client.PutAsJsonAsync(_baseAddress + "/update", updatedTestRequest);
+        //                var response = await _client.PostAsJsonAsync(_baseAddress + "/create", testRequestCreateDTO);
 
-            return await response.ReadContentAsync<TestRequest>();
-        }
+        //                return new TestRequestWebCreateResult { Success = true };
+
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                return new TestRequestWebCreateResult { Success = false, Message = ex.ToString() };
+        //            }
+        //        }
+        //        else
+        //        {
+        //            return new TestRequestWebCreateResult { Success = false, Message = $"Directory with Test Request ID {RequestID} already exists!" };
+        //        }
+        //    }
+
+
+        //    bool IsValidAppiumOptionsJson(string json)
+        //    {
+        //        try
+        //        {
+        //            AppiumOptions appiumOptions = JsonConvert.DeserializeObject<AppiumOptions>(json);
+        //            return true;
+        //        }
+        //        catch (JsonReaderException e)
+        //        {
+        //            _logger.LogError(e.Message);
+        //            return false;
+        //        }
+        //    }
+
+        //    bool IsValidJson(string json)
+        //    {
+        //        try
+        //        {
+        //            JToken.Parse(json);
+        //            return true;
+        //        }
+        //        catch (JsonReaderException e)
+        //        {
+        //            _logger.LogError("String '{0}' is not a valid json. Exception: {1}", json, e.Message);
+        //            return false;
+        //        }
+        //    }
+
+        //    private string GetUniqueTestRequestID()
+        //    {
+        //        return DateTime.UtcNow.ToString("yyyy_MM_dd_hh_mm_ss")
+        //                  + "_"
+        //                  + Guid.NewGuid().ToString().Substring(0, 4);
+        //    }
+
+        //    public async Task<TestRequest> UpdateTestRequest(string id, TestRequest updatedTestRequest)
+        //    {
+        //        var response = await _client.PutAsJsonAsync(_baseAddress + "/update", updatedTestRequest);
+
+        //        return await response.ReadContentAsync<TestRequest>();
+        //    }
+        //}
     }
 }
