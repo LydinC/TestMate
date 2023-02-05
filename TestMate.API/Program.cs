@@ -35,6 +35,8 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Services.AddAutoMapper(typeof(TestRequestProfile));
 builder.Services.AddAutoMapper(typeof(DeveloperProfile));
+builder.Services.AddAutoMapper(typeof(DevicesProfile));
+
 
 
 builder.Services.AddControllers()
@@ -99,7 +101,9 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseMiddleware<JWTTokenValidationMiddleware>();
-app.UseHttpsRedirection();
+
+//TODO: Switched off for now until certificates are settled (using http)
+//app.UseHttpsRedirection();
 
 app.UseRouting();
 app.UseAuthentication();

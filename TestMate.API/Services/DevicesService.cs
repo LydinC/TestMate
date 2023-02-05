@@ -1,41 +1,204 @@
-﻿using Microsoft.Extensions.Options;
+﻿using AutoMapper;
+using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Diagnostics;
+using System.Net;
 using TestMate.API.Settings;
+using TestMate.Common.DataTransferObjects.APIResponse;
+using TestMate.Common.DataTransferObjects.Developers;
+using TestMate.Common.DataTransferObjects.Devices;
+using TestMate.Common.Enums;
+using TestMate.Common.Models.Developers;
 using TestMate.Common.Models.Devices;
+using TestMate.Common.Utils;
 
 namespace TestMate.API.Services;
 public class DevicesService
 {
     private readonly IMongoCollection<Device> _devicesCollection;
+    private readonly IMapper _mapper;
 
-    public DevicesService(IOptions<DatabaseSettings> databaseSettings)
+    public DevicesService(IOptions<DatabaseSettings> databaseSettings, IMapper mapper)
     {
         var mongoClient = new MongoClient(databaseSettings.Value.ConnectionString);
         var mongoDatabase = mongoClient.GetDatabase(databaseSettings.Value.DatabaseName);
         _devicesCollection = mongoDatabase.GetCollection<Device>(databaseSettings.Value.DevicesCollectionName);
+        _mapper = mapper;
     }
 
-    //Returns all devices
-    public async Task<List<Device>> GetAsync() => await _devicesCollection.Find(_ => true).ToListAsync();
 
-    //Returns a device by IMEI or null if not found
-    public async Task<Device?> GetAsync(string IMEI) => await _devicesCollection.Find(x => x.IMEI == IMEI).FirstOrDefaultAsync();
-
-    //Creates a new device
-    public async Task CreateAsync(Device newDevice)
+    public async Task<APIResponse<IEnumerable<Device>>> GetAllDevices()
     {
-        await _devicesCollection.InsertOneAsync(newDevice);
+        try
+        {
+            var devices = await _devicesCollection.Find(_ => true).ToListAsync();
+            return new APIResponse<IEnumerable<Device>>(devices);
+        }
+        catch (Exception ex)
+        {
+            return new APIResponse<IEnumerable<Device>>(Status.Error, ex.Message);
+        }
     }
 
-    //Updates device (by IMEI) 
-    public async Task UpdateAsync(string IMEI, Device updatedDevice)
+    public async Task<APIResponse<Device>> GetDeviceBySerialNumber(string SerialNumber)
     {
-        await _devicesCollection.ReplaceOneAsync(x => x.IMEI == IMEI, updatedDevice);
+        try
+        {
+            var device = await _devicesCollection.Find(x => x.SerialNumber == SerialNumber).FirstOrDefaultAsync();
+
+            if (device == null) return new APIResponse<Device>(Status.Error, "Device details could not be retrieved!");
+
+            return new APIResponse<Device>(device);
+        }
+        catch (Exception ex)
+        {
+            return new APIResponse<Device>(Status.Error, ex.Message);
+        }
     }
 
-    //Removes devices (by IMEI)
-    public async Task RemoveAsync(string IMEI)
+    public async Task<APIResponse<Device>> ConnectDevice(DevicesConnectDTO deviceDTO)
     {
-        await _devicesCollection.DeleteOneAsync(x => x.IMEI == IMEI);
+
+        //Validate IP Address
+        if (!IPAddress.TryParse(deviceDTO.IP, out var address))
+        {
+            return new APIResponse<Device>(Status.Error, "IP " + deviceDTO.IP + " is invalid!");
+        }
+
+        //Validate IP is reachable through PING
+        if (!ConnectivityUtil.IsIpReachable(ip: deviceDTO.IP, timeoutInMs: 10000))
+        {
+            return new APIResponse<Device>(Status.Error, "IP " + deviceDTO.IP + " is not reachable. Cannot connect!");
+        }
+
+        int port;
+        try
+        {
+            List<string> adbDevices = ConnectivityUtil.GetADBDevices();
+            if(adbDevices == null || adbDevices.Count == 0)
+            {
+                return new APIResponse<Device>(Status.Error, "ADB does not indicate any connected devices!");
+            } 
+            else
+            {
+                //Check if Device with same IP Exists in Database
+                Device deviceInDbWithSameIP = await _devicesCollection.Find(x => x.IP == deviceDTO.IP).FirstOrDefaultAsync();
+
+                //Is the device already connected?
+                if (adbDevices.Any(x => x.Contains(deviceDTO.IP)))
+                {
+                    //Get the serial number for the IP trying to connect and which is already connected in ADB
+                    string serial = ConnectivityUtil.GetSerialNumberByIp(deviceDTO.IP);
+                    if (!string.IsNullOrEmpty(serial))
+                    {
+                        if (deviceInDbWithSameIP != null)
+                        {
+                            if(deviceInDbWithSameIP.SerialNumber != serial)
+                            {
+                                //TODO: Should i delete the MongoDB Document and update it with the new details?
+                            }
+                        }
+                    }
+                    else 
+                    {
+                        return new APIResponse<Device>(Status.Error, "Could not retrieve serial number for device with IP: " +deviceDTO.IP);
+                    }
+
+
+                    //TODO: Make sure that device in DB is correct (same Ip + same Serial + Status is connected?)
+                    return new APIResponse<Device>(Status.Ok, "Device with IP " + deviceDTO.IP + " is already connected!");
+                } 
+                else
+                {
+                    port = ConnectivityUtil.GetAvailableTcpIpPort();
+
+                    //TODO: check if there are other stable means how we can retrieve the serial number of the device
+                    string serialNumber = adbDevices.FirstOrDefault(x => !x.StartsWith("192"));
+                    if (serialNumber == null)
+                    {
+                        return new APIResponse<Device>(Status.Error, "Could not retrieve ADB Serial Number for device with IP " + deviceDTO.IP + ". Make sure you connect using USB the first time.");
+                    }
+
+                    if (!ConnectivityUtil.ValidateSerialNumberAndIP(serialNumber, deviceDTO.IP)) {
+                        return new APIResponse<Device>(Status.Error, "The Serial Number " + serialNumber + " does not own requested IP " + deviceDTO.IP + ".");
+                    }
+
+                    if (!ConnectivityUtil.TryADBConnect(serialNumber, deviceDTO.IP, port))
+                    {
+                        return new APIResponse<Device>(Status.Error, "Could not connect to ADB for IP: " + deviceDTO.IP + ", Port: " + port + ".");
+                    }
+
+                    try
+                    {
+                        DeviceProperties properties = ConnectivityUtil.GetDeviceProperties(deviceDTO.IP, port);
+
+                        //Device device = _mapper.Map<Device>(deviceDTO);
+                        //device.TcpIpPort = port;
+                        //device.ConnectedTimestamp = DateTime.UtcNow;
+                        //device.Status = DeviceStatus.Connected;
+                        //device.DeviceProperties = properties;
+                        //device.SerialNumber = serialNumber;
+
+                        //if (_devicesCollection.Find(x => x.SerialNumber == serialNumber).FirstOrDefault() == null) {
+                        //    await _devicesCollection.InsertOneAsync(device)
+                        //};
+
+
+                        // Insert or update device record
+                        var filter = Builders<Device>.Filter.Eq(x => x.SerialNumber, serialNumber);
+                        var update = Builders<Device>.Update
+                            .Set(d => d.SerialNumber, serialNumber)
+                            .Set(d => d.DeviceProperties, properties)
+                            .Set(d => d.TcpIpPort, port)
+                            .Set(d => d.Status, DeviceStatus.Connected)
+                            .Set(d => d.ConnectedTimestamp, DateTime.UtcNow)
+                            .Set(d => d.IP, deviceDTO.IP);
+
+                        await _devicesCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
+
+                        return new APIResponse<Device>(Status.Ok, "Device Successfully Connected!");
+
+                    }
+                    catch (Exception)
+                    {
+                        ConnectivityUtil.DisconnectADBDevice(deviceDTO.IP, port);
+                        throw;
+                    }
+                }
+            }
+
+
+            
+            
+        }
+        catch (Exception ex)
+        {
+            
+            return new APIResponse<Device>(Status.Error, ex.Message);
+        }
+    }
+
+    public async Task<APIResponse<Device>> UpdateAsync(Device updatedDevice)
+    {
+        try
+        {
+            var device = await _devicesCollection.Find(x => x.SerialNumber == updatedDevice.SerialNumber).FirstOrDefaultAsync();
+            if (device == null) return new APIResponse<Device>(Status.Error, "Device could not be updated!");
+
+            var result = await _devicesCollection.ReplaceOneAsync(x => x.SerialNumber == updatedDevice.SerialNumber, updatedDevice);
+
+            return new APIResponse<Device>(updatedDevice);
+        }
+        catch (Exception ex)
+        {
+            return new APIResponse<Device>(Status.Error, ex.Message);
+        }   
+    }
+
+    //Removes devices (by SerialNumber)
+    public async Task RemoveAsync(string SerialNumber)
+    {
+        await _devicesCollection.DeleteOneAsync(x => x.SerialNumber == SerialNumber);
     }
 }

@@ -1,7 +1,10 @@
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 using RabbitMQ.Client;
 using Serilog;
+using System.Configuration;
 using TestMate.Runner.BackgroundServices;
-
+using TestMate.Runner.Settings;
 
 namespace TestMate.Runner
 {
@@ -24,6 +27,9 @@ namespace TestMate.Runner
             .UseSerilog()
             .ConfigureServices((hostContext, services) =>
                 {
+
+                    var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+
                     // Settings for RabbitMQ Connection
                     var factory = new ConnectionFactory()
                     {
@@ -35,11 +41,17 @@ namespace TestMate.Runner
                     var connection = factory.CreateConnection();
                     var channel = connection.CreateModel();
 
-                    //var mongoClient = new MongoClient("mongodb://localhost:27017");
-                    //var mongoDatabase = mongoClient.GetDatabase("testframework_db");
 
-                    //Logging Configuration
-                    var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+                    services.Configure<DatabaseSettings>(configuration.GetSection("MongoDb"));
+
+                    services.AddSingleton(sp =>
+                    {
+                        var options = sp.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+                        var client = new MongoClient(options.ConnectionString);
+                        return client.GetDatabase(options.DatabaseName);
+                    });
+
+                   
                     Log.Logger = new LoggerConfiguration()
                         .ReadFrom.Configuration(configuration)
                         .CreateLogger();
@@ -50,7 +62,9 @@ namespace TestMate.Runner
                     services.AddSingleton(Log.Logger);
                     services.AddSingleton(connection);
                     services.AddSingleton(channel);
+
                     services.AddHostedService<RunnerService>();
+                    services.AddHostedService<MaintenanceService>();
                 });
     }
 }

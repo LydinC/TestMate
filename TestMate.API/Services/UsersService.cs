@@ -63,7 +63,7 @@ namespace TestMate.API.Services
             {
                 var user = await _usersCollection.Find(x => x.Username == userLoginDTO.Username).FirstOrDefaultAsync();
 
-                if (user == null || user.Password != user.Password)
+                if (user == null || user.Password != userLoginDTO.Password)
                     return new APIResponse<UserLoginResultDTO>(Status.Error, "Failed to log in. Please check your username and password and try again.");
 
                 return new APIResponse<UserLoginResultDTO>(Status.Ok, "Successfully logged in!", new UserLoginResultDTO { Token = _jwtAuthenticationService.GenerateJWTToken(userLoginDTO.Username) });

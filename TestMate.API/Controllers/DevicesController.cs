@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using System.Text.RegularExpressions;
 using TestMate.API.Services;
+using TestMate.API.Services.Interfaces;
+using TestMate.Common.DataTransferObjects.Devices;
 using TestMate.Common.Models.Devices;
 
 namespace TestMate.API.Controllers;
@@ -14,89 +17,99 @@ public class DevicesController : ControllerBase
     public DevicesController(DevicesService devicesService) =>
         _devicesService = devicesService;
 
+
+    [Authorize]
     [HttpGet]
-    public async Task<List<Device>> Get() =>
-        await _devicesService.GetAsync();
-
-
-    [HttpGet("{IMEI:length(15)}")]
-    public async Task<ActionResult<Device>> Get(string IMEI)
+    public async Task<IActionResult> Get()
     {
-        var device = await _devicesService.GetAsync(IMEI);
+        var result = await _devicesService.GetAllDevices();
 
-        if (device is null)
+        if (result.Success)
         {
-            return NotFound();
+            return Ok(result);
         }
-
-        return device;
+        else
+        {
+            return BadRequest(result);
+        }
     }
 
-    [HttpPost("Register")]
-    public async Task<IActionResult> Post([FromBody] Device newDevice)
+    [Authorize]
+    [HttpGet("Details")]
+    public async Task<IActionResult> GetDetails(string serialNumber)
     {
-        if (newDevice.IMEI.Length != 15)
-        {
-            return BadRequest("IMEI cannot be less than 15 digits");
-        }
+        var result = await _devicesService.GetDeviceBySerialNumber(serialNumber);
 
-        if (Regex.Match(newDevice.IMEI, "^[0-9]*$").Success == false)
+        if (result.Success)
         {
-            return BadRequest("IMEI contains non-numeric characters!");
+            return Ok(result);
         }
-
-        var device = await _devicesService.GetAsync(newDevice.IMEI);
-        if (device != null)
+        else
         {
-            if (device.ExpirationTimestamp < DateTime.Now)
+            return NotFound(result);
+        }
+    }
+
+    //[Authorize]
+    [HttpPost("Connect")]
+    public async Task<IActionResult> Connect([FromBody] DevicesConnectDTO device)
+    {
+        if (ModelState.IsValid)
+        {
+            var result = await _devicesService.ConnectDevice(device);
+
+            if (result.Success)
             {
-                return BadRequest(String.Format("Cannot register device with IMEI {0} as it already is available", newDevice.IMEI));
+                return Ok(result);
             }
             else
             {
-                //TODO: check if expiration timestamp should be refreshed? and send update instead of CreateAsync?
+                return BadRequest(result);
             }
         }
-
-        //TODO: CONSIDER UTC
-        newDevice.RegistrationTimestamp = DateTime.Now.ToLocalTime();
-        newDevice.ExpirationTimestamp = DateTime.Now.AddHours(1).ToLocalTime();
-
-        await _devicesService.CreateAsync(newDevice);
-
-        return CreatedAtAction(nameof(Get), new { IMEI = newDevice.IMEI }, newDevice);
-    }
-
-
-    [HttpPut("{IMEI:length(15)}")]
-    public async Task<IActionResult> Update(string IMEI, Device updatedDevice)
-    {
-        var device = await _devicesService.GetAsync(IMEI);
-
-        if (device is null)
+        else
         {
-            return NotFound();
+            return BadRequest(ModelState);
         }
-
-        updatedDevice.IMEI = device.IMEI;
-
-        await _devicesService.UpdateAsync(IMEI, updatedDevice);
-
-        return NoContent();
     }
 
-    [HttpDelete("{IMEI:length(15)}")]
-    public async Task<IActionResult> Delete(string IMEI)
+
+    //[Authorize]
+    [HttpPut("Update")]
+    public async Task<IActionResult> Update([FromBody] Device updatedDevice)
     {
-        var device = await _devicesService.GetAsync(IMEI);
-
-        if (device is null)
+        if (ModelState.IsValid)
         {
-            return NotFound();
+            var result = await _devicesService.UpdateAsync(updatedDevice);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            else
+            {
+                return BadRequest(result);
+            }
         }
-
-        await _devicesService.RemoveAsync(IMEI);
-
-        return NoContent();
+        else
+        {
+            return BadRequest(ModelState);
+        }
     }
+
+
+    //[HttpDelete("{IMEI:length(15)}")]
+    //public async Task<IActionResult> Delete(string IMEI)
+    //{
+    //    var device = await _devicesService.GetAsync(IMEI);
+
+    //    if (device is null)
+    //    {
+    //        return NotFound();
+    //    }
+
+    //    await _devicesService.RemoveAsync(IMEI);
+
+    //    return NoContent();
+    //}
 }

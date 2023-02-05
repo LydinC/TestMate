@@ -1,4 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using OpenQA.Selenium.Support.UI;
+using TestMate.Common.DataTransferObjects.APIResponse;
+using TestMate.Common.DataTransferObjects.Developers;
+using TestMate.Common.DataTransferObjects.TestRequests;
+using TestMate.Common.Models.Developers;
+using TestMate.Common.Models.TestRequests;
+using TestMate.WEB.Helpers;
 
 namespace TestMate.WEB.Controllers
 {
@@ -8,9 +15,9 @@ namespace TestMate.WEB.Controllers
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ILogger<TestRequestsController> _logger;
 
-        public TestRequestsController(HttpClient client, IWebHostEnvironment webHostEnvironment, ILogger<TestRequestsController> logger)
+        public TestRequestsController(IHttpClientFactory clientFactory, IWebHostEnvironment webHostEnvironment, ILogger<TestRequestsController> logger)
         {
-            _client = client ?? throw new ArgumentNullException(nameof(client));
+            _client = clientFactory.CreateClient("TestRequestsClient");
             _webHostEnvironment = webHostEnvironment;
             _logger = logger;
         }
@@ -44,31 +51,27 @@ namespace TestMate.WEB.Controllers
 
 
 
-        //[HttpPost]
-        //[Route("TestRequests/Create")]
-        //public async Task<IActionResult> Create(TestRequestWebCreateDTO testRequestWebCreateDTO)
-        //{
+        [HttpPost]
+        [Route("TestRequests/Create")]
+        public async Task<IActionResult> Create(TestRequestWebCreateDTO testRequestWebCreateDTO)
+        {
 
-        //    _logger.LogInformation("Called Create method");
+            _logger.LogInformation("Called Create method");
+            var response = await _client.PostAsJsonAsync<TestRequestWebCreateDTO>(_client.BaseAddress + "/Create", testRequestWebCreateDTO);
+            var result = await response.ReadContentAsync<APIResponse<TestRequestWebCreateResult>>();
 
-        //    if (!ModelState.IsValid) {
-        //        _logger.LogError("Invalid Model!");
-        //        return View(testRequestWebCreateDTO);
-        //    }
+            if (result.Success)
+            {
+                TempData["Success"] = result.Message;
+                return RedirectToAction("Index", "Home");
+            }
+            else
+            {
+                TempData["Error"] = result.Message;
+                return View();
+            }
 
-        //    var createResult = await _service.CreateTestRequest(testRequestWebCreateDTO);
-
-        //    if (!createResult.Success)
-        //    {
-        //        ViewBag.Message = $"TestRequest Submission Failed! {createResult.Message}";
-        //    }
-        //    else 
-        //    {
-        //        ViewBag.Message = "Successfully submitted TestRequest!";
-        //    }
-
-        //    return View();
-        //}
+        }
 
 
 

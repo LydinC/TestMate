@@ -1,16 +1,11 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations;
+using TestMate.Common.Enums;
 
 namespace TestMate.Common.Models.TestRequests
 {
-    public enum RequestStatus
-    {
-        New,
-        Processing,
-        Completed,
-        Failed
-    }
+   
 
     public class TestRequest
     {
@@ -24,7 +19,7 @@ namespace TestMate.Common.Models.TestRequests
 
         [Required]
         [BsonRequired]
-        public RequestStatus Status { get; set; }
+        public TestRequestStatus Status { get; set; }
 
         [Required(ErrorMessage = "Requestor field is required")]
         [BsonRequired]
@@ -54,7 +49,7 @@ namespace TestMate.Common.Models.TestRequests
         {
             RequestId = Guid.NewGuid();
             Timestamp = DateTime.UtcNow;
-            Status = RequestStatus.New;
+            Status = TestRequestStatus.New;
         }
 
     }

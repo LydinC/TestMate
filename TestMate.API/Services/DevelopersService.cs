@@ -98,9 +98,6 @@ public class DevelopersService : IDevelopersService
         }
     }
 
-
-
-
     // STILL TO BE REVISED
 
     //Updates developer (by username) 
