@@ -4,9 +4,10 @@ using MongoDB.Driver;
 using TestMate.API.Settings;
 using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.DataTransferObjects.TestRequests;
-using TestMate.Common.Models.TestRequests;
 using TestMate.Common.Enums;
-using Microsoft.AspNetCore.Identity;
+using TestMate.Common.Models.TestRequests;
+using Microsoft.IdentityModel.JsonWebTokens;
+
 
 namespace TestMate.API.Services
 {
@@ -50,14 +51,14 @@ namespace TestMate.API.Services
             
         }
 
-        public async Task<APIResponse<TestRequestCreateResultDTO>> CreateAsync(TestRequestCreateDTO testRequestCreateDTO)
+        public async Task<APIResponse<TestRequestCreateResultDTO>> CreateAsync(string requestor, TestRequestCreateDTO testRequestCreateDTO)
         {
 
             try
             {
                 TestRequest testRequest = _mapper.Map<TestRequest>(testRequestCreateDTO);
+                testRequest.Requestor = requestor;
 
-                testRequest.Requestor = "Requestor";//TODO: Refer to USER.IDENTITY?
                 await _testRequestsCollection.InsertOneAsync(testRequest);
                 return new APIResponse<TestRequestCreateResultDTO>(new TestRequestCreateResultDTO { Id = testRequest.Id });
             }

@@ -13,7 +13,6 @@ namespace TestMate.WEB.Controllers
         public DevelopersController(IHttpClientFactory clientFactory, ILogger<DevelopersController> logger)
         {
             _client = clientFactory.CreateClient("DevelopersClient");
-           
             _logger = logger;
         }
 
@@ -111,7 +110,7 @@ namespace TestMate.WEB.Controllers
             if (result.Success)
             {
                 TempData["Success"] = result.Message;
-                return RedirectToAction("Index", "Home");
+                return View();
             }
             else
             {

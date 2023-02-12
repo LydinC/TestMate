@@ -66,7 +66,6 @@ namespace TestMate.Runner.BackgroundServices
                         {
                             reconnectedDevicesInADB++;
                         }
-                        
                     }
                 }
                 

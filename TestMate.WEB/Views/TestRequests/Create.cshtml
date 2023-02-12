@@ -52,17 +52,17 @@
     <a asp-action="TestRequests">Back to List</a>
 </div>
 
-@if (ViewBag.Message != null)
+@if (@TempData["Success"] != null)
 {
-    <div class="alert alert-dark" role="alert">
-        @ViewBag.Message
+    <div class="alert-success form-style">
+        <p>@TempData["Success"]</p>
     </div>
-@*        <script type="text/javascript">
-            window.onload = function () {
-                alert("@viewbag.message");
-            };
-        </script>
-*@
+}
+@if (@TempData["Error"] != null)
+{
+    <div class="error-message form-style">
+        <p>@TempData["Error"]</p>
+    </div>
 }
 
 @section Scripts {

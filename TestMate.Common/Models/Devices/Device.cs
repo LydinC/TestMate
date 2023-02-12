@@ -20,7 +20,7 @@ namespace TestMate.Common.Models.Devices
         [Required(ErrorMessage = "IP is required!")]
         public int TcpIpPort { get; set; }
 
-        [Required(ErrorMessage = "Registration Timestamp is required!")]
+        [Required(ErrorMessage = "Connected Timestamp is required!")]
         public DateTime ConnectedTimestamp { get; set; }
 
         [Required(ErrorMessage = "Device Status is required!")]

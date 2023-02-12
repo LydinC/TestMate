@@ -85,7 +85,7 @@ public class DevicesService
                 //Check if Device with same IP Exists in Database
                 Device deviceInDbWithSameIP = await _devicesCollection.Find(x => x.IP == deviceDTO.IP).FirstOrDefaultAsync();
 
-                //Is the device already connected?
+                //Is the device already ADB connected?
                 if (adbDevices.Any(x => x.Contains(deviceDTO.IP)))
                 {
                     //Get the serial number for the IP trying to connect and which is already connected in ADB
@@ -97,6 +97,11 @@ public class DevicesService
                             if(deviceInDbWithSameIP.SerialNumber != serial)
                             {
                                 //TODO: Should i delete the MongoDB Document and update it with the new details?
+                            } 
+                            else
+                            {
+                                //Make sure the Status is connected in MongoDB for the deviceInDbWithSameIP
+                                //Update Properties too?
                             }
                         }
                     }
@@ -104,7 +109,6 @@ public class DevicesService
                     {
                         return new APIResponse<Device>(Status.Error, "Could not retrieve serial number for device with IP: " +deviceDTO.IP);
                     }
-
 
                     //TODO: Make sure that device in DB is correct (same Ip + same Serial + Status is connected?)
                     return new APIResponse<Device>(Status.Ok, "Device with IP " + deviceDTO.IP + " is already connected!");
@@ -132,18 +136,6 @@ public class DevicesService
                     try
                     {
                         DeviceProperties properties = ConnectivityUtil.GetDeviceProperties(deviceDTO.IP, port);
-
-                        //Device device = _mapper.Map<Device>(deviceDTO);
-                        //device.TcpIpPort = port;
-                        //device.ConnectedTimestamp = DateTime.UtcNow;
-                        //device.Status = DeviceStatus.Connected;
-                        //device.DeviceProperties = properties;
-                        //device.SerialNumber = serialNumber;
-
-                        //if (_devicesCollection.Find(x => x.SerialNumber == serialNumber).FirstOrDefault() == null) {
-                        //    await _devicesCollection.InsertOneAsync(device)
-                        //};
-
 
                         // Insert or update device record
                         var filter = Builders<Device>.Filter.Eq(x => x.SerialNumber, serialNumber);

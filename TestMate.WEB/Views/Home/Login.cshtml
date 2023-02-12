@@ -13,12 +13,12 @@
 
             <div class="form-group form-style">
                 <label asp-for="Username" class="control-label"></label>
-                <input asp-for="Username" class="form-control" placeholder="Enter Username"/>
+                <input asp-for="Username" class="form-control" placeholder="Enter Username" required/>
                 <span asp-validation-for="Username" class="text-danger"></span>
             </div>
             <div class="form-group form-style">
                 <label asp-for="Password" class="control-label"></label>
-                <input asp-for="Password" type="password" class="form-control" placeholder="Enter Password" />
+                <input asp-for="Password" type="password" class="form-control" placeholder="Enter Password" required />
                 <span asp-validation-for="Password" class="text-danger"></span>
             </div>
             <div class="form-group btn-group form-style">

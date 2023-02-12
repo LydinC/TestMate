@@ -6,7 +6,6 @@ using TestMate.Common.Enums;
 namespace TestMate.Common.Models.TestRequests
 {
    
-
     public class TestRequest
     {
         [BsonId]
@@ -29,27 +28,21 @@ namespace TestMate.Common.Models.TestRequests
         [BsonRequired]
         public DateTime Timestamp { get; set; }
 
-        [Required(ErrorMessage = "Application Under Test (APK) is required")]
+        [Required]
         [BsonRequired]
-        public string ApplicationUnderTest { get; set; } = null!;
+        public int RetryCount { get; set; }
 
-        [Required(ErrorMessage = "Test Solution Path is required")]
+        [Required]
         [BsonRequired]
-        public string TestSolutionPath { get; set; } = null!;
+        public TestRunConfiguration TestRunConfiguration{ get; set; }
 
-        [Required(ErrorMessage = "Appium Options are required")]
-        [BsonRequired]
-        public string AppiumOptions { get; set; } = null!;
-
-        [Required(ErrorMessage = "Context Configurations are required")]
-        [BsonRequired]
-        public string ContextConfiguration { get; set; } = null!;
 
         public TestRequest()
         {
             RequestId = Guid.NewGuid();
             Timestamp = DateTime.UtcNow;
             Status = TestRequestStatus.New;
+            RetryCount = 0;
         }
 
     }

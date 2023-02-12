@@ -1,5 +1,7 @@
-﻿using MongoDB.Driver;
+﻿using MongoDB.Bson;
+using MongoDB.Driver;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Core;
 using NUnit.Framework.Interfaces;
 using NUnit.Util;
@@ -13,6 +15,8 @@ using System.IO.Packaging;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Channels;
 using System.Xml;
 using System.Xml.Linq;
 using TestMate.Common.Enums;
@@ -29,17 +33,17 @@ namespace TestMate.Runner.BackgroundServices
         private readonly IModel _channel;
         private readonly IConfiguration _configuration;
         private readonly IMongoCollection<Device> _devicesCollection;
+        private readonly IMongoCollection<TestRequest> _testRequestsCollection;
         //private readonly CancellationToken _cancellationToken;
-
 
         string exchangeName = "TestRequestExchange";
         string queueName = "test-requests";
         string routingKey = "testRequestKey";
 
-
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration)
         {
             _devicesCollection = database.GetCollection<Device>("Devices");
+            _testRequestsCollection = database.GetCollection<TestRequest>("TestRequests");
             _logger = logger;
             _connection = connection;
             _channel = channel;
@@ -50,7 +54,7 @@ namespace TestMate.Runner.BackgroundServices
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
 
-            _logger.LogInformation("Starting RunnerService");
+            _logger.LogInformation("======= Starting RunnerService =======");
 
             try
             {
@@ -77,11 +81,17 @@ namespace TestMate.Runner.BackgroundServices
                     routingKey: routingKey,
                     arguments: null);
                 _logger.LogInformation("RabbitMQ - 'test-requests' queue binded with TestRequestExchange");
+
+                //Setup Qos
+                _channel.BasicQos(prefetchSize: 0, prefetchCount: 10, global: false);
+
                 _logger.LogInformation("Successfully set up RabbitMQ");
+                _logger.LogInformation("======= RunnerService Setup Complete =======");
             }
             catch (Exception e)
             {
                 _logger.LogError(e.Message);
+                _logger.LogInformation("======= RunnerService Setup Failed =======");
             }
 
 
@@ -95,21 +105,16 @@ namespace TestMate.Runner.BackgroundServices
                 var body = ea.Body.ToArray();
                 var message = Encoding.UTF8.GetString(body);
 
-                // Process the message
                 _logger.LogInformation("Message received: " + message);
-
-                // Deserialize the message into a TestRequest object
                 TestRequest testRequest = DeserializeTestRequest(message);
-
-                
 
                 // Run the Appium tests in a separate thread
                 var thread = new Thread(() => ProcessTestRequest(cancellationToken, testRequest));
                 _logger.LogInformation("Setting up new thread to process message " + thread.Name);
                 thread.Start();
-
+                
                 // Acknowledge the message
-                _logger.LogInformation("Acknowledging Message");
+                _logger.LogInformation("Acknowledging Message ");
                 _channel.BasicAck(
                     deliveryTag: ea.DeliveryTag,
                     multiple: false);
@@ -120,18 +125,17 @@ namespace TestMate.Runner.BackgroundServices
                 queue: queueName,
                 autoAck: false,
                 consumer: consumer);
+            _logger.LogInformation("Consumer Started");
+
 
             /* LISTENER FOR PUBLISHER */
             _logger.LogInformation("Setting up Listener on MongoDB using ChangeStream");
-            var mongoClient = new MongoClient("mongodb://localhost:27017");
-            var database = mongoClient.GetDatabase("testframework_db");
-            var collection = database.GetCollection<TestRequest>("TestRequests");
             var pipeline = new EmptyPipelineDefinition<ChangeStreamDocument<TestRequest>>();
             var options = new ChangeStreamOptions();
             options.FullDocument = ChangeStreamFullDocumentOption.UpdateLookup;
             _logger.LogInformation("Successfully set up MongoDB ChangeStream");
 
-            using (var changeStream = collection.Watch(pipeline, options))
+            using (var changeStream = _testRequestsCollection.Watch(pipeline, options))
             {
                 // Listen for change events
                 await changeStream.ForEachAsync(async change =>
@@ -157,46 +161,14 @@ namespace TestMate.Runner.BackgroundServices
                     }
                 });
             }
+        }
 
-            ////CONSUMER
-
-            //consumer.Received += async (model, ea) =>
-            //{
-            //    var body = ea.Body.ToArray();
-            //    string message = Encoding.UTF8.GetString(body);
-            //    Console.WriteLine("Received message: {0}", message);
-
-            //    // Deserialize the message into a TestRequest object
-            //    TestRequest testRequest = DeserializeTestRequest(message);
-
-            //    // Set up the Appium connection and execute the tests
-            //    /*var appiumOptions = new AppiumOptions();
-            //    appiumOptions.AddAdditionalCapability("platformName", testRequest.PlatformName);
-            //    appiumOptions.AddAdditionalCapability("deviceName", testRequest.DeviceName);
-            //    appiumOptions.AddAdditionalCapability("app", testRequest.AppPath);
-
-            //    using var appiumDriver = new AndroidDriver<AndroidElement>(new Uri("http://localhost:4723/wd/hub"), appiumOptions);
-            //    var testResult = await ExecuteTests(appiumDriver);
-
-            //    // Publish the test result to the "appiumresults" exchange
-            //    var testResultJson = JsonConvert.SerializeObject(testResult);
-            //    var testResultBody = Encoding.UTF8.GetBytes(testResultJson);
-            //    _channel.BasicPublish("appiumresults", "", null, testResultBody);
-            //    Console.WriteLine("Sent message: {0}", testResultJson);
-            //    */
-
-            //    //ACKNOWLEDGEMENTS?????
-            //    // Acknowledge the message
-            //    _channel.BasicAck(ea.DeliveryTag, multiple: false);
-
-            //};
-            //_channel.BasicConsume(queueName, true, consumer);
-            //// Start the consumer in a separate task
-            //var consumerTask = Task.Factory.StartNew(() =>
-            //{
-            //    _channel.BasicConsume(queueName, true, consumer);
-            //}, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-
+        public override Task StopAsync(CancellationToken cancellationToken)
+        {
+            _channel.Dispose();
+            _channel.Close();
+            _connection.Close();
+            return base.StopAsync(cancellationToken);
         }
 
         static string SerializeTestRequest(TestRequest testRequest)
@@ -210,43 +182,86 @@ namespace TestMate.Runner.BackgroundServices
             return testRequest;
         }
 
-        private int FindAvailablePort
-        {
-            get
-            {
-                // Finding an available port by trying to bind a socket to a series of ports and seeing which ones are available
-                _logger.LogInformation("Searching for an available port ... ");
-
-                var port = 4723; // Appium default port
-                while (true)
-                {
-                    try
-                    {
-                        using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-                        {
-                            socket.Bind(new IPEndPoint(IPAddress.Loopback, port));
-                            _logger.LogInformation("Available Port Identified: " + port);
-                            return port;
-                        }
-                    }
-                    catch (SocketException)
-                    {
-                        port++;
-                    }
-                }
-            }
-        }
-
         private void ProcessTestRequest(CancellationToken cancellationToken, TestRequest testRequest)
         {
             _logger.LogInformation("Triggering process of servicing Test Request " + testRequest.RequestId.ToString());
 
-            string desiredDeviceProperties = "{Model: 'SM-G960F', AndroidVersion: '10', SdkVersion: '29' }";
+            testRequest.TestRunConfiguration = new TestRunConfiguration
+                (
+                    applicationUnderTest: @"""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\UPLOADS\44fb61fb-62ad-4a92-a562-d8d25fee21c1\Application Under Test\com.xlythe.calculator.material_93.apk""",
+                    testSolutionPath: "\"C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\Appium Tests\\AppiumTests\\bin\\Debug\\net7.0\\AppiumTests.dll\"",
+                    desiredDeviceProperties: "{\"Model\": \"SM-G960F\", \"AndroidVersion\": \"> 10\" }",
+                    constraints: new TestRunConstraints(),
+                    contextConifguration: new ContextConifguration()
+                 );
+           
+            JObject desiredDeviceProperties = JObject.Parse(testRequest.TestRunConfiguration.DesiredDeviceProperties);
 
-            var filter = Builders<Device>.Filter.And(
-                Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected),
-                Builders<Device>.Filter.Eq(d => d.DeviceProperties.Model, "SM-G960F")
-            );
+            //var builder = Builders<Device>.Filter;
+            //var filter = builder.Empty;
+
+
+            //foreach (var property in desiredDeviceProperties)
+            //{
+            //    string key = property.Key.ToString();
+            //    var value = property.Value;
+
+            //    switch (value.Type)
+            //    {
+            //        case JTokenType.String:
+            //            string stringValue = value.ToString();
+            //            Regex operatorRegex = new Regex("^(<=|>=|<|>|=)\\s*\\d+(\\.\\d+)?$");
+
+            //            if (operatorRegex.IsMatch(stringValue)) {
+            //                string[] tokenizedOperator = stringValue.Split(" ");
+
+            //                switch (tokenizedOperator[0])
+            //                {
+            //                    case ">=":
+            //                        filter = filter & Builders<Device>.Filter.Eq(d => d.DeviceProperties., DeviceStatus.Connected);
+            //                        break;
+            //                    case ">":
+            //                        filter &= builder.AnyGt(d => d.DeviceProperties[key.ToString()], tokenizedOperator[1]);
+            //                        break;
+
+            //                    case "<=":
+            //                        filter = filter & builder.AnyLte(d => d.DeviceProperties[key], tokenizedOperator[1]);
+            //                        break;
+
+            //                    case "<":
+            //                        filter = filter & builder.AnyLt(d => d.DeviceProperties[key], tokenizedOperator[1]);
+            //                        break;
+
+            //                    case "=":
+            //                        filter = filter & builder.AnyEq(key, tokenizedOperator[1]);
+            //                        break;
+            //                }
+            //            } else 
+            //            {
+            //                filter = filter & builder.Eq(key, stringValue);
+
+            //            }
+
+            //            break;
+            //        case JTokenType.Array:
+            //            filter = filter & builder.In(key, value.ToObject<string[]>());
+            //            break;
+            //    }
+            //}
+
+            // Create a config class which holds:
+            // - Device selection parameters
+            // - Context selection parameters
+            // - Test run constrains (e.g. max devices, max contexts, max runtime)
+
+            //var filter = Builders<Device>.Filter.And(
+            //    Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected),
+            //    Builders<Device>.Filter.Eq(d => d.DeviceProperties.Model, "NE2213")
+            //);
+                
+
+            FilterDefinition<Device> filter = "{\"DeviceProperties.SdkVersion\" : {$gte : 29}}";
+            filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
 
             Device? device = null;
 
@@ -272,18 +287,20 @@ namespace TestMate.Runner.BackgroundServices
                     var deviceUpdate = Builders<Device>.Update.Set(d => d.Status, DeviceStatus.Running);
                     var result = _devicesCollection.UpdateOneAsync(deviceFilter, deviceUpdate);
 
+                    updateTestRequestStatus(testRequest.RequestId, TestRequestStatus.Processing);
+
                     var appiumService = new AppiumServiceBuilder()
                         .WithIPAddress("127.0.0.1")
                         .UsingAnyFreePort()
-                        //.WithLogFile(new FileInfo(Path.Combine(Directory.GetCurrentDirectory(),"Logs", "NUnit_TestResults", testRequest.RequestId.ToString())))
+                        .WithLogFile(new FileInfo(Path.Combine(Directory.GetCurrentDirectory(),"Logs", "AppiumServerLogs", testRequest.RequestId.ToString()+ ".txt")))
                         .Build();
                     try
                     {
                         appiumService.Start();
-                        AppiumOptions options = new AppiumOptions();
-                        options.AddAdditionalCapability("udid", $"{device.IP}:{device.TcpIpPort}");
-                        options.AddAdditionalCapability("app", $"{testRequest.ApplicationUnderTest}");
-
+                        string udid = $"{device.IP}:{device.TcpIpPort}";
+                        string app = $"{testRequest.TestRunConfiguration.ApplicationUnderTest}";
+                        string appiumServerUrl = $"{appiumService.ServiceUrl.AbsoluteUri}";
+                        string fileName = @"C:\Program Files\NUnit.Console-3.16.2\bin\nunit3-console.exe";
 
                         /* RUNNING VIA NUNIT TESTPACKAGE TECHNIQUE 
                         // Initialize the test engine
@@ -302,11 +319,15 @@ namespace TestMate.Runner.BackgroundServices
                         remoteTestRunner.Load(testPackage);
                         TestResult testResult = remoteTestRunner.Run(listener: null, TestFilter.Empty, true, LoggingThreshold.All);
                         */
-                        
-                        string fileName = @"C:\Program Files\NUnit.Console-3.16.2\bin\nunit3-console.exe";
-                        string arguments = "\"C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\Appium Tests\\AppiumTests\\bin\\Debug\\net7.0\\AppiumTests.dll\" --work=\"C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\TEST\" --testparams:AppiumServerUrl=http://127.0.0.1:63978/wd/hub --out=\"ConsoleOutput.txt\" --result=\"NUnitResult.xml\"";
-                        ////string arguments = string.Format(@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\Appium Tests\AppiumTests\bin\Debug\net7.0\AppiumTests.dll --work=""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{0}"" --out=""Out.txt"" --result=""Result.xml"" > ""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{0}\ConsoleOutput.txt""", testRequest.RequestId.ToString());
 
+
+                        string arguments = testRequest.TestRunConfiguration.TestSolutionPath +
+                                            " --work=\"C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\" + testRequest.RequestId + "\"" +
+                                            " --testparam:AppiumServerUrl=" + appiumServerUrl +
+                                            " --testparam:APP=" + app +
+                                            " --testparam:UDID=" + udid +
+                                            " --out=\"ConsoleOutput.txt\" " +
+                                            " --result=\"NUnitResult.xml\"";
 
                         ProcessStartInfo startInfo = new ProcessStartInfo
                         {
@@ -327,12 +348,23 @@ namespace TestMate.Runner.BackgroundServices
                             _logger.LogInformation("Process " + process.Id + " - Standard output: {0}", output);
                             _logger.LogInformation("Process " + process.Id + " - Standard error: {0}", error);
 
-                        }
 
+                            //TODO: Consider catering for different failure statuses as defined in https://docs.nunit.org/articles/nunit/running-tests/Console-Runner.html
+                            if (process.ExitCode >= 0)
+                            {
+                                updateTestRequestStatus(testRequest.RequestId, TestRequestStatus.Completed);
+                            }
+                            else 
+                            {
+                                updateTestRequestStatus(testRequest.RequestId, TestRequestStatus.Failed);
+                            }
+
+                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex.StackTrace, ex);
+                        _logger.LogError("[TEST RUN FAILED!] -- " + ex.StackTrace, ex);
+                        updateTestRequestStatus(testRequest.RequestId, TestRequestStatus.Failed);
                     }
                     finally
                     {
@@ -358,11 +390,6 @@ namespace TestMate.Runner.BackgroundServices
                 _logger.LogWarning($"Postponing consumption of Test Request {testRequest.RequestId}");
                 //TODO:
             }
-
-
-
-
-
 
 
             //Check if there is an available device at the moment to service the request
@@ -391,33 +418,23 @@ namespace TestMate.Runner.BackgroundServices
             //If not, republish the message to be consumed at a later time
 
 
-
-            //string fileName = @"C:\Program Files\NUnit.Console-3.15.2\bin\net6.0\nunit3-console.exe";
-            //string arguments = string.Format(@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\Appium Tests\AppiumTests\bin\Debug\net6.0\AppiumTests.dll --work=""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{0}"" --out=""Out.txt"" --result=""Result.xml"" > ""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{0}\ConsoleOutput.txt""", requestNumber);
-
-            //ProcessStartInfo startInfo = new ProcessStartInfo
-            //{
-            //    FileName = fileName,
-            //    Arguments = arguments,
-            //    UseShellExecute = false,
-            //    RedirectStandardOutput = true,
-            //    RedirectStandardError = true,
-            //};
-
-            //using (Process process = Process.Start(startInfo))
-            //{
-            //    string output = process.StandardOutput.ReadToEnd();
-            //    string error = process.StandardError.ReadToEnd();
-
-            //    process.WaitForExit();
-            //    _logger.LogInformation("Process " + process.Id + " exited with code " + process.ExitCode);
-            //    _logger.LogInformation("Process " + process.Id + " - Standard output: {0}", output);
-            //    _logger.LogInformation("Process " + process.Id + " - Standard error: {0}", error);
-
-            //}
-
-            // Run the tests
-            //while (!cancellationToken.IsCancellationRequested)
         }
+
+
+
+
+        public async void updateTestRequestStatus(Guid requestId, TestRequestStatus status)
+        {
+            var testRequestFilter = Builders<TestRequest>.Filter.Where(x => x.RequestId == requestId);
+            var testRequestUpdate = Builders<TestRequest>.Update.Set(x => x.Status, status);
+            await _testRequestsCollection.UpdateOneAsync(testRequestFilter, testRequestUpdate);
+        }
+
+
     }
+
+
+
+
+
 }

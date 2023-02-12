@@ -10,7 +10,6 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<TokenHandler>();
 
-
 var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
 builder.Services.AddHttpClient<DevelopersController>("DevelopersClient",
@@ -60,7 +59,7 @@ app.UseSession();
 app.UseRouting();
 
 
-//Authentication and Authorisation are based on whether client has the cookie or not
+//Authentication and Authorisation are done at API layer
 //app.UseAuthentication();
 //app.UseAuthorization();
 

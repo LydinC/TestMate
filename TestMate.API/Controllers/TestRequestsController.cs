@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.JsonWebTokens;
 using TestMate.API.Services;
 using TestMate.Common.DataTransferObjects.TestRequests;
 
@@ -33,6 +34,7 @@ public class TestRequestsController : ControllerBase
         }
     }
 
+    [Authorize]
     [HttpGet("{id}")]
     public async Task<IActionResult> Get(string Id)
     {
@@ -48,6 +50,7 @@ public class TestRequestsController : ControllerBase
         }
     }
 
+    [Authorize]
     [HttpPost("Create")]
     public async Task<IActionResult> Create([FromBody] TestRequestCreateDTO testRequestCreateDTO)
     {
@@ -55,8 +58,8 @@ public class TestRequestsController : ControllerBase
         {
             return BadRequest(ModelState);
         }
-
-        var result = await _testRequestsService.CreateAsync(testRequestCreateDTO);
+        string requestorUsername = User.FindFirst(JwtRegisteredClaimNames.Name).Value ?? throw new ArgumentNullException();
+        var result = await _testRequestsService.CreateAsync(requestorUsername, testRequestCreateDTO);
         if (result.Success)
         {
             return CreatedAtAction(nameof(Get), result);

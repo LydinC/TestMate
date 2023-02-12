@@ -29,6 +29,7 @@ namespace TestMate.Common.Models.Developers
         public string Username { get; set; } = null!;
 
         [Required(ErrorMessage = "Password is required")]
+        [RegularExpression(@"^.*(?=.{8,})(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!*@#$%^&+=]).*$", ErrorMessage = "Password does not meet requirements")]
         public string Password { get; set; } = null!;
 
         [Required]

@@ -153,24 +153,28 @@ namespace TestMate.Common.Utils
                 "ro.product.locale",
                 "ro.product.brand",
                 "ro.build.version.sdk",
-                "gsm.operator.alpha"
+                "gsm.operator.alpha",
+                "ro.product.cpu.abi",
+                "persist.sys.timezone",
+                //wm size is embedded in command
             };
 
             string propertiesList = string.Join("|", properties);
 
-            string adbCcommand = $"adb -s {ip}:{port} shell getprop | Select-String -Pattern '{propertiesList}'";
+            string adbCcommand = $"adb -s {ip}:{port} shell 'getprop && wm size && dumpsys battery' | Select-String -Pattern '{propertiesList}|Physical size|level|scale|AC powered|USB powered|Wireless powered'";
             var output = ExecuteADBCommand(adbCcommand);
             
             output = output.Replace("[", "").Replace("]", "");
             
             return MapDeviceProperties(output);
-
         }
         private static DeviceProperties MapDeviceProperties(string adbOutput)
         {
             var properties = adbOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-            var deviceProperties = new DeviceProperties();
-
+            DeviceProperties deviceProperties = new DeviceProperties();
+            BatteryInfo batteryInfo = new BatteryInfo();
+            deviceProperties.Battery = batteryInfo;
+            
             foreach (var property in properties)
             {
                 var key = property.Split(':')[0].Trim();
@@ -184,7 +188,7 @@ namespace TestMate.Common.Utils
                         deviceProperties.Manufacturer = value;
                         break;
                     case "ro.build.version.release":
-                        deviceProperties.AndroidVersion = value;
+                        deviceProperties.AndroidVersion = int.Parse(value);
                         break;
                     case "ro.product.locale":
                         deviceProperties.Locale = value;
@@ -198,6 +202,34 @@ namespace TestMate.Common.Utils
                     case "gsm.operator.alpha":
                         deviceProperties.Operator = value;
                         break;
+                    case "Physical size":
+                        string[] resolution = value.Split("x");
+                        deviceProperties.ScreenResolution = new ScreenResolution(int.Parse(resolution[0]), int.Parse(resolution[1]));
+                        break;
+                    case "ro.product.cpu.abi":
+                        deviceProperties.ProcessorType = value;
+                        break;
+                    case "persist.sys.timezone":
+                        deviceProperties.TimeZone = value;
+                        break;
+
+                    //Battery Related
+                    case "level":
+                        batteryInfo.Level = int.Parse(value);
+                        break;
+                    case "scale":
+                        batteryInfo.Scale = int.Parse(value);
+                        break;
+                    case "AC powered":
+                        batteryInfo.ACPowered = Boolean.Parse(value);
+                        break;
+                    case "USB powered":
+                        batteryInfo.USBPowered = Boolean.Parse(value);
+                        break;
+                    case "Wireless powered":
+                        batteryInfo.WirelessPowered = Boolean.Parse(value);
+                        break;
+
                 }
             }
 
@@ -239,14 +271,11 @@ namespace TestMate.Common.Utils
             return false;
             }
 
-
-
         public static string GetSerialNumberByIp(string ip) {
             string adbCcommand = $"adb -s {ip} shell getprop ro.serialno";
             var output = ExecuteADBCommand(adbCcommand);
             return output;
         }
-
 
         public static string ExecuteADBCommand(string command)
         {
@@ -266,8 +295,5 @@ namespace TestMate.Common.Utils
 
             return output;
         }
-
-
-
     }
 }
