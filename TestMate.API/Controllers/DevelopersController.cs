@@ -33,7 +33,6 @@ public class DevelopersController : ControllerBase
         }
     }
 
-
     [Authorize]
     [HttpGet("Details")]
     public async Task<IActionResult> GetDetails()

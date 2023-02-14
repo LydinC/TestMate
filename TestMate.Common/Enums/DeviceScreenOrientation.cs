@@ -8,7 +8,10 @@ namespace TestMate.Common.Enums
 {
     public enum DeviceScreenOrientation
     {
-        Landscape = 0,
-        Portrait = 1,
+        Up = 0, //0°
+        Right = 1, //90°
+        Down = 2, //180°
+        Left = 3 //270°
+   
     }
 }

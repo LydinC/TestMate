@@ -10,6 +10,7 @@ using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using TestMate.Common.Enums;
 using TestMate.Common.Models.Devices;
 
 namespace TestMate.Common.Utils
@@ -74,7 +75,8 @@ namespace TestMate.Common.Utils
                 if (connectOutput.Contains($"connected to {ip}:{port}"))
                 {
                     return true;
-                } else 
+                } 
+                else 
                 {
                     return false;
                 }
@@ -85,7 +87,6 @@ namespace TestMate.Common.Utils
                 return false;
             }
         }
-
 
         public static bool DisconnectADBDevice(string ip, int port)
         {
@@ -139,7 +140,6 @@ namespace TestMate.Common.Utils
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
-                
             }
             return deviceSerials;
         }
@@ -292,8 +292,68 @@ namespace TestMate.Common.Utils
                 
                 output = process.StandardOutput.ReadToEnd().Trim();
             }
-
+            
             return output;
         }
+
+
+        //CONTEXT CONFIGURATION METHODS
+
+        public static bool SetBrightnessLevel(Device device, int level) {
+
+            //TODO: Consider making min and max
+            string adb_setBrightnessMode = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system screen_brightness_mode 0";
+            string adb_setBrightnessLevel = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system screen_brightness {level}";
+            ExecuteADBCommand(adb_setBrightnessMode);
+            ExecuteADBCommand(adb_setBrightnessLevel);
+            
+            return true;
+        }
+
+        public static bool SetBluetooth(Device device, bool enable)
+        {
+            string adbCommand = "";
+            if (enable)
+            {
+                adbCommand = $"adb -s {device.IP}:{device.TcpIpPort} shell am broadcast -a io.appium.settings.bluetooth --es setstatus enable";
+            }
+            else
+            {
+                adbCommand = $"adb -s {device.IP}:{device.TcpIpPort} shell am broadcast -a io.appium.settings.bluetooth --es setstatus disable";
+            }
+            var output = ExecuteADBCommand(adbCommand);
+
+            return output.Contains("Broadcast completed: result=-1");
+        }
+
+        public static bool SetAirplaneMode(Device device, bool enable)
+        {
+            string adbCommand = "";
+            if (enable)
+            {
+                adbCommand = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put global airplane_mode_on 1";
+            }
+            else
+            {
+                adbCommand = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put global airplane_mode_on 0";
+            }
+            var output = ExecuteADBCommand(adbCommand);
+
+            return output.Contains("Broadcast completed: result=-1");
+        }
+
+        public static bool SetOrientation(Device device, DeviceScreenOrientation screenOrientation)
+        {
+
+            string adb_autoRotateOff = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system accelerometer_rotation 0";
+            string adb_setOrientation = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system user_rotation {screenOrientation}";
+            string adb_autoRotateOn = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system accelerometer_rotation 1";
+            
+            ExecuteADBCommand(adb_autoRotateOff);
+            ExecuteADBCommand(adb_setOrientation);
+
+            return true;
+        }
+
     }
 }

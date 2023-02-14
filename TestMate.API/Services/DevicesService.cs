@@ -40,7 +40,27 @@ public class DevicesService
             return new APIResponse<IEnumerable<Device>>(Status.Error, ex.Message);
         }
     }
+    public async Task<APIResponse<DeviceStatus>> GetStatusByIP(string ip)
+    {
+        try
+        {
+            var device = await _devicesCollection.Find(d => d.IP == ip).FirstOrDefaultAsync();
+            
+            if (device == null) 
+            {
+                return new APIResponse<DeviceStatus>(Status.Error, "Unable to get device with IP: " + ip);
+            }
 
+            return new APIResponse<DeviceStatus>(device.Status);
+        }
+        catch (Exception ex)
+        {
+            return new APIResponse<DeviceStatus>(Status.Error, ex.Message);
+        }
+    }
+
+
+    
     public async Task<APIResponse<Device>> GetDeviceBySerialNumber(string SerialNumber)
     {
         try

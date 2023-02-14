@@ -1,24 +1,11 @@
-﻿using MongoDB.Bson;
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using NUnit.Core;
-using NUnit.Framework.Interfaces;
-using NUnit.Util;
-using NUnit.VisualStudio.TestAdapter;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Service;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Diagnostics;
-using System.IO.Packaging;
-using System.Net;
-using System.Net.Sockets;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Channels;
-using System.Xml;
-using System.Xml.Linq;
 using TestMate.Common.Enums;
 using TestMate.Common.Models.Devices;
 using TestMate.Common.Models.TestRequests;
@@ -36,10 +23,10 @@ namespace TestMate.Runner.BackgroundServices
         private readonly IMongoCollection<TestRequest> _testRequestsCollection;
         //private readonly CancellationToken _cancellationToken;
 
-        string exchangeName = "TestRequestExchange";
-        string queueName = "test-requests";
-        string routingKey = "testRequestKey";
-
+        string testRequestExchange = "TestRequestExchange";
+        string testRequestQueue = "test-requests-queue";
+        string testRequestRoutingKey = "testRequestKey";
+      
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration)
         {
             _devicesCollection = database.GetCollection<Device>("Devices");
@@ -53,33 +40,26 @@ namespace TestMate.Runner.BackgroundServices
 
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-
-            _logger.LogInformation("======= Starting RunnerService =======");
+            //--https://www.c-sharpcorner.com/article/rabbitmq-retry-architecture/
 
             try
             {
+                _logger.LogInformation("======= Starting RunnerService =======");
                 _logger.LogInformation("Setting up RabbitMQ");
-                //Exchange Declaration
-                _channel.ExchangeDeclare(
-                    exchange: exchangeName,
-                    type: ExchangeType.Direct);
+
+                //Exchange Declarations 
+                Dictionary<string, object> args = new Dictionary<string, object>();
+                args.Add("x-delayed-type", "direct");
+                _channel.ExchangeDeclare(exchange: testRequestExchange, type: "x-delayed-message", true, false, args);
                 _logger.LogInformation("RabbitMQ - TestRequestExchange declared");
 
-                // Declare a queue for test request messages.
-                _channel.QueueDeclare(
-                    queue: queueName,
-                    durable: true,
-                    exclusive: false,
-                    autoDelete: false,
-                    arguments: null);
+                //Queues Declarations
+                _channel.QueueDeclare(queue: testRequestQueue, durable: true, exclusive: false, autoDelete: false, arguments: null);
                 _logger.LogInformation("RabbitMQ - 'test-requests' queue declared");
 
-                //Bind queue to exchange
-                _channel.QueueBind(
-                    queue: queueName,
-                    exchange: exchangeName,
-                    routingKey: routingKey,
-                    arguments: null);
+
+                //Binding Declarations
+                _channel.QueueBind(queue: testRequestQueue, exchange: testRequestExchange, routingKey: testRequestRoutingKey);
                 _logger.LogInformation("RabbitMQ - 'test-requests' queue binded with TestRequestExchange");
 
                 //Setup Qos
@@ -106,23 +86,60 @@ namespace TestMate.Runner.BackgroundServices
                 var message = Encoding.UTF8.GetString(body);
 
                 _logger.LogInformation("Message received: " + message);
-                TestRequest testRequest = DeserializeTestRequest(message);
+                TestRequest testRequest = JsonConvert.DeserializeObject<TestRequest>(message);
+
 
                 // Run the Appium tests in a separate thread
-                var thread = new Thread(() => ProcessTestRequest(cancellationToken, testRequest));
-                _logger.LogInformation("Setting up new thread to process message " + thread.Name);
+                var thread = new Thread(async () =>
+                {
+
+                    if (await ProcessTestRequest(testRequest, cancellationToken) == false)
+                    {
+                        _logger.LogWarning("No available device found!");
+
+                        testRequest.RetryCount++;
+                        await incrementTestRequestRetryCount(testRequest);
+
+                        if (testRequest.RetryCount <= 3)
+                        {
+                            //republish updated test request with a delay header
+                            var message = JsonConvert.SerializeObject(testRequest);
+                            _logger.LogInformation($"Re-publishing message: {message} ");
+                            var properties = _channel.CreateBasicProperties();
+                            properties.Headers = new Dictionary<string, object>();
+                            properties.Headers.Add("x-delay", 300000); //5 minutes
+                            // Publish the message to the queue
+                            var body = Encoding.UTF8.GetBytes(message);
+                            _channel.BasicPublish(
+                                exchange: testRequestExchange,
+                                routingKey: testRequestRoutingKey,
+                                basicProperties: properties,
+                                body: body
+                                );
+                            _logger.LogInformation("Re-published successfully!");
+                        }
+                        else
+                        {
+                            _logger.LogError("Failing to serve test request after 3 attempts.");
+                            await updateTestRequestStatus(testRequest, TestRequestStatus.FailedNoDevices);
+                        }
+                    }
+
+                    //Always acnowledge message. If request was not processed, another message was published with the respective delay
+                    _logger.LogInformation("Acknowledging Message");
+                    _channel.BasicAck(
+                        deliveryTag: ea.DeliveryTag,
+                        multiple: false);
+                });
+
+                _logger.LogDebug("Starting New Thread - " + thread.ManagedThreadId);
                 thread.Start();
-                
-                // Acknowledge the message
-                _logger.LogInformation("Acknowledging Message ");
-                _channel.BasicAck(
-                    deliveryTag: ea.DeliveryTag,
-                    multiple: false);
+
             };
 
             //Start the consumer
             _channel.BasicConsume(
-                queue: queueName,
+                queue: testRequestQueue,
                 autoAck: false,
                 consumer: consumer);
             _logger.LogInformation("Consumer Started");
@@ -145,14 +162,14 @@ namespace TestMate.Runner.BackgroundServices
                     {
                         // Publish the test request as a message to RabbitMQ Queue
                         var testRequest = change.FullDocument;
-                        var message = SerializeTestRequest(testRequest);
-                        _logger.LogInformation("Publishing message: {message} to exchange '{exchangeName}'", message, exchangeName);
+                        var message = JsonConvert.SerializeObject(testRequest);
+                        _logger.LogInformation($"Publishing message: {message} to exchange '{testRequestExchange}'");
 
                         // Publish the message to the queue
                         var body = Encoding.UTF8.GetBytes(message);
                         _channel.BasicPublish(
-                            exchange: exchangeName,
-                            routingKey: routingKey,
+                            exchange: testRequestExchange,
+                            routingKey: testRequestRoutingKey,
                             basicProperties: null,
                             body: body
                             );
@@ -171,21 +188,10 @@ namespace TestMate.Runner.BackgroundServices
             return base.StopAsync(cancellationToken);
         }
 
-        static string SerializeTestRequest(TestRequest testRequest)
+        private async Task<bool> ProcessTestRequest(TestRequest testRequest, CancellationToken cancellationToken)
         {
-            return JsonConvert.SerializeObject(testRequest);
-        }
-
-        static TestRequest DeserializeTestRequest(string message)
-        {
-            TestRequest testRequest = JsonConvert.DeserializeObject<TestRequest>(message);
-            return testRequest;
-        }
-
-        private void ProcessTestRequest(CancellationToken cancellationToken, TestRequest testRequest)
-        {
-            _logger.LogInformation("Triggering process of servicing Test Request " + testRequest.RequestId.ToString());
-
+            _logger.LogDebug("Triggering process of servicing Test Request " + testRequest.RequestId.ToString());
+            
             testRequest.TestRunConfiguration = new TestRunConfiguration
                 (
                     applicationUnderTest: @"""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\UPLOADS\44fb61fb-62ad-4a92-a562-d8d25fee21c1\Application Under Test\com.xlythe.calculator.material_93.apk""",
@@ -194,10 +200,12 @@ namespace TestMate.Runner.BackgroundServices
                     constraints: new TestRunConstraints(),
                     contextConifguration: new ContextConifguration()
                  );
-           
+
             JObject desiredDeviceProperties = JObject.Parse(testRequest.TestRunConfiguration.DesiredDeviceProperties);
 
-            //var builder = Builders<Device>.Filter;
+            /* CODE COMMENTED FOR GENERATING MONGO FILTER
+             * 
+             * var builder = Builders<Device>.Filter;
             //var filter = builder.Empty;
 
 
@@ -248,6 +256,7 @@ namespace TestMate.Runner.BackgroundServices
             //            break;
             //    }
             //}
+            */
 
             // Create a config class which holds:
             // - Device selection parameters
@@ -282,26 +291,26 @@ namespace TestMate.Runner.BackgroundServices
 
                 if (device != null)
                 {
-                    //update device status to running
-                    var deviceFilter = Builders<Device>.Filter.Where(x => x.SerialNumber == device.SerialNumber);
-                    var deviceUpdate = Builders<Device>.Update.Set(d => d.Status, DeviceStatus.Running);
-                    var result = _devicesCollection.UpdateOneAsync(deviceFilter, deviceUpdate);
-
-                    updateTestRequestStatus(testRequest.RequestId, TestRequestStatus.Processing);
-
+                    string workingFolder = "C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\" + testRequest.RequestId;
                     var appiumService = new AppiumServiceBuilder()
                         .WithIPAddress("127.0.0.1")
                         .UsingAnyFreePort()
-                        .WithLogFile(new FileInfo(Path.Combine(Directory.GetCurrentDirectory(),"Logs", "AppiumServerLogs", testRequest.RequestId.ToString()+ ".txt")))
+                        .WithLogFile(new FileInfo(Path.Combine(workingFolder, "AppiumServerLog.txt")))
                         .Build();
+
+                  
                     try
                     {
-                        appiumService.Start();
+                        await updateDeviceStatus(device, DeviceStatus.Running);
+                        await updateTestRequestStatus(testRequest, TestRequestStatus.Processing);
+
                         string udid = $"{device.IP}:{device.TcpIpPort}";
                         string app = $"{testRequest.TestRunConfiguration.ApplicationUnderTest}";
+                        string nUnitConsolePath = @"C:\Program Files\NUnit.Console-3.16.2\bin\nunit3-console.exe";
                         string appiumServerUrl = $"{appiumService.ServiceUrl.AbsoluteUri}";
-                        string fileName = @"C:\Program Files\NUnit.Console-3.16.2\bin\nunit3-console.exe";
 
+                        appiumService.Start();
+                        
                         /* RUNNING VIA NUNIT TESTPACKAGE TECHNIQUE 
                         // Initialize the test engine
                         ITestEngine engine = TestEngineActivator.CreateInstance();
@@ -320,18 +329,17 @@ namespace TestMate.Runner.BackgroundServices
                         TestResult testResult = remoteTestRunner.Run(listener: null, TestFilter.Empty, true, LoggingThreshold.All);
                         */
 
-
                         string arguments = testRequest.TestRunConfiguration.TestSolutionPath +
-                                            " --work=\"C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\" + testRequest.RequestId + "\"" +
+                                            " --work=\"" + workingFolder + "\"" +
                                             " --testparam:AppiumServerUrl=" + appiumServerUrl +
                                             " --testparam:APP=" + app +
                                             " --testparam:UDID=" + udid +
-                                            " --out=\"ConsoleOutput.txt\" " +
+                                            " --out=\"DllOutput.txt\" " +
                                             " --result=\"NUnitResult.xml\"";
 
                         ProcessStartInfo startInfo = new ProcessStartInfo
                         {
-                            FileName = fileName,
+                            FileName = nUnitConsolePath,
                             Arguments = arguments,
                             UseShellExecute = false,
                             RedirectStandardOutput = true,
@@ -345,92 +353,70 @@ namespace TestMate.Runner.BackgroundServices
 
                             process.WaitForExit();
                             _logger.LogInformation("Process " + process.Id + " exited with code " + process.ExitCode);
-                            _logger.LogInformation("Process " + process.Id + " - Standard output: {0}", output);
-                            _logger.LogInformation("Process " + process.Id + " - Standard error: {0}", error);
-
+                            File.WriteAllText(workingFolder + "\\NUnitConsole_StandardOutput.txt", output);
+                            File.WriteAllText(workingFolder + "\\NUnitConsole_StandardError.txt", error);
 
                             //TODO: Consider catering for different failure statuses as defined in https://docs.nunit.org/articles/nunit/running-tests/Console-Runner.html
                             if (process.ExitCode >= 0)
                             {
-                                updateTestRequestStatus(testRequest.RequestId, TestRequestStatus.Completed);
+                                await updateTestRequestStatus(testRequest, TestRequestStatus.Completed);
                             }
                             else 
                             {
-                                updateTestRequestStatus(testRequest.RequestId, TestRequestStatus.Failed);
+                                await updateTestRequestStatus(testRequest, TestRequestStatus.Failed);
                             }
 
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError("[TEST RUN FAILED!] -- " + ex.StackTrace, ex);
-                        updateTestRequestStatus(testRequest.RequestId, TestRequestStatus.Failed);
+                        _logger.LogError("[TEST RUN FAILED!] - " + ex.Message + ex.StackTrace, ex);
+                        await updateTestRequestStatus(testRequest, TestRequestStatus.Failed);
                     }
                     finally
                     {
-                        //update device status to connected (idle)
-                        deviceFilter = Builders<Device>.Filter.Where(x => x.SerialNumber == device.SerialNumber);
-                        deviceUpdate = Builders<Device>.Update.Set(d => d.Status, DeviceStatus.Connected);
-                        result = _devicesCollection.UpdateOneAsync(deviceFilter, deviceUpdate);
-
+                        await updateDeviceStatus(device, DeviceStatus.Connected);
                         appiumService.Dispose();
+                        
                     }
+                    return true;
                 }
                 else 
                 {
-                    //POSTPONE CONSUME OF QUEUE
                     _logger.LogWarning($"Postponing consumption of Test Request {testRequest.RequestId}");
-                    //TODO:
+                    return false;
                 }
 
             }
             else 
             {
-                //POSTPONE CONSUME OF QUEUE  
                 _logger.LogWarning($"Postponing consumption of Test Request {testRequest.RequestId}");
-                //TODO:
+                return false;
             }
-
-
-            //Check if there is an available device at the moment to service the request
-
-            //If ok,
-            //Check if device is actually connected using ADB
-            //Get Device Props again to make sure that they match the required props
-            //IF OK    
-            //Set status of device to Running
-            //Start Appium Server
-            //var appiumService = new AppiumServiceBuilder()
-            //    .WithIPAddress("0.0.0.0")
-            //    .UsingAnyFreePort()
-            //    .WithLogFile(new FileInfo(string.Format("C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\{0}", requestNumber)))
-            //    .Build();
-
-            //appiumService.Start();
-            //Make sure that appium server is started
-            //Build the appiumOptions required to be passed over to the test runner executable
-            //Example: UDID of device selected, appium server url, applicationPackage name, etc)
-
-
-            //ELSE
-            //Try to get another device otherwise if not available postpone the request
-
-            //If not, republish the message to be consumed at a later time
-
-
         }
 
 
 
 
-        public async void updateTestRequestStatus(Guid requestId, TestRequestStatus status)
+        public async Task updateTestRequestStatus(TestRequest testRequest, TestRequestStatus status)
         {
-            var testRequestFilter = Builders<TestRequest>.Filter.Where(x => x.RequestId == requestId);
+            var testRequestFilter = Builders<TestRequest>.Filter.Where(x => x.Id == testRequest.Id);
             var testRequestUpdate = Builders<TestRequest>.Update.Set(x => x.Status, status);
             await _testRequestsCollection.UpdateOneAsync(testRequestFilter, testRequestUpdate);
         }
 
+        public async Task incrementTestRequestRetryCount(TestRequest testRequest)
+        {
+            var testRequestFilter = Builders<TestRequest>.Filter.Where(x => x.Id == testRequest.Id);
+            var testRequestUpdate = Builders<TestRequest>.Update.Inc(x => x.RetryCount, 1);
+            await _testRequestsCollection.UpdateOneAsync(testRequestFilter, testRequestUpdate);
+        }
 
+        public async Task updateDeviceStatus(Device device, DeviceStatus status) {
+            var deviceFilter = Builders<Device>.Filter.Where(d => d.SerialNumber == device.SerialNumber);
+            var deviceUpdate = Builders<Device>.Update.Set(d => d.Status, status);
+            await _devicesCollection.UpdateOneAsync(deviceFilter, deviceUpdate);
+        }
     }
 
 

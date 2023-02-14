@@ -56,6 +56,12 @@ namespace TestMate.API.Services
 
             try
             {
+                //Validate TestRequestID is not duplicate
+                if (_testRequestsCollection.Find(x => x.RequestId == testRequestCreateDTO.RequestId).FirstOrDefault() != null) 
+                {
+                    return new APIResponse<TestRequestCreateResultDTO>(Status.Error, $"TestRequestID ({testRequestCreateDTO.RequestId}) already exists!");
+                }
+
                 TestRequest testRequest = _mapper.Map<TestRequest>(testRequestCreateDTO);
                 testRequest.Requestor = requestor;
 

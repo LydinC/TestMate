@@ -18,7 +18,7 @@ namespace TestMate.Common.DataTransferObjects.Developers
         public string Email { get; set; } = null!;
 
         [Required(ErrorMessage = "Username is required")]
-        [RegularExpression(@"^[a-zA-Z0-9]+$",
+        [RegularExpression(@"^[a-zA-Z0-9]{8,}$",
                            ErrorMessage = "Please enter a valid username.")]
         public string Username { get; set; } = null!;
 

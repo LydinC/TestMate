@@ -50,7 +50,30 @@ public class DevicesController : ControllerBase
         }
     }
 
-    //[Authorize]
+
+    [Authorize]
+    [HttpGet("Status")]
+    public async Task<IActionResult> Status(string ip)
+    {
+        if (ModelState.IsValid)
+        {
+            var result = await _devicesService.GetStatusByIP(ip);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            else
+            {
+                return NotFound(result);
+            }
+        }
+        else
+        {
+            return BadRequest(ModelState);
+        }
+    }
+
     [HttpPost("Connect")]
     public async Task<IActionResult> Connect([FromBody] DevicesConnectDTO device)
     {
@@ -98,18 +121,5 @@ public class DevicesController : ControllerBase
     }
 
 
-    //[HttpDelete("{IMEI:length(15)}")]
-    //public async Task<IActionResult> Delete(string IMEI)
-    //{
-    //    var device = await _devicesService.GetAsync(IMEI);
-
-    //    if (device is null)
-    //    {
-    //        return NotFound();
-    //    }
-
-    //    await _devicesService.RemoveAsync(IMEI);
-
-    //    return NoContent();
-    //}
+   
 }

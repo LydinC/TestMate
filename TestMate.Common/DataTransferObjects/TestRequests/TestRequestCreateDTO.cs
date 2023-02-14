@@ -5,8 +5,6 @@ namespace TestMate.Common.DataTransferObjects.TestRequests
 {
     public class TestRequestCreateDTO
     {
-
-
         [Required]
         public Guid RequestId { get; set; }
 
@@ -21,7 +19,6 @@ namespace TestMate.Common.DataTransferObjects.TestRequests
 
         [Required(ErrorMessage = "Context Configurations are required")]
         public string ContextConfiguration { get; set; } = null!;
-
 
 
         public TestRequestCreateDTO(Guid requestId, string applicationUnderTestPath, string testSolutionPath, string appiumOptions, string contextConfiguration)

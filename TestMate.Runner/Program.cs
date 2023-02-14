@@ -40,7 +40,7 @@ namespace TestMate.Runner
                     };
                     var connection = factory.CreateConnection();
                     var channel = connection.CreateModel();
-
+                    
 
                     services.Configure<DatabaseSettings>(configuration.GetSection("MongoDb"));
 
