@@ -17,19 +17,19 @@ namespace TestMate.Common.Models.TestRequests
         public string TestSolutionPath { get; set; }
 
         [Required]
-        public string DesiredDeviceProperties { get; set; } = null!;
+        public DesiredDeviceProperties DesiredDeviceProperties { get; set; } = null!;
 
         [Required]
         public TestRequestConstraints Constraints { get; set; }
 
-        public ContextConifguration ContextConifguration { get; set; } = null!;
+        public ContextConfiguration ContextConfiguration { get; set; } = null!;
 
-        public TestRequestConfiguration(string applicationUnderTest, string testSolutionPath, string desiredDeviceProperties, TestRequestConstraints constraints, ContextConifguration contextConifguration) {
+        public TestRequestConfiguration(string applicationUnderTest, string testSolutionPath, DesiredDeviceProperties desiredDeviceProperties, TestRequestConstraints constraints, ContextConfiguration contextConfiguration) {
             ApplicationUnderTest = applicationUnderTest;
             TestSolutionPath = testSolutionPath;
             DesiredDeviceProperties = desiredDeviceProperties;
             Constraints = constraints;
-            ContextConifguration = contextConifguration;
+            ContextConfiguration = contextConfiguration;
         }    
     }
 
@@ -40,7 +40,7 @@ namespace TestMate.Common.Models.TestRequests
         public int maxNumberOfContexts { get; set; }
     }
 
-    public class ContextConifguration
+    public class ContextConfiguration
     {
 
         //STILL TO CHECK IF MANIPULATING THESE OPTIONS IS VIABLE OR NOT

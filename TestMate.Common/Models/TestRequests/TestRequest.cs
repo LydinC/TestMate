@@ -34,7 +34,7 @@ namespace TestMate.Common.Models.TestRequests
 
         [Required]
         [BsonRequired]
-        public TestRequestConfiguration TestRunConfiguration { get; set; }
+        public TestRequestConfiguration TestRequestConfiguration { get; set; }
 
 
         public TestRequest()

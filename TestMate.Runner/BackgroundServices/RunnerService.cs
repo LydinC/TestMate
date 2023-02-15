@@ -197,28 +197,13 @@ namespace TestMate.Runner.BackgroundServices
 
             testRun.TestSolutionPath = "\"C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\Appium Tests\\AppiumTests\\bin\\Debug\\net7.0\\AppiumTests.dll\"";
             testRun.ApplicationUnderTest = @"""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\UPLOADS\44fb61fb-62ad-4a92-a562-d8d25fee21c1\Application Under Test\com.xlythe.calculator.material_93.apk""";
-            testRun.DesiredDeviceProperties = JsonConvert.DeserializeObject<DesiredDeviceProperties>("{\"Model\": \"SM-G960F\", \"AndroidVersion\": \"> 10\" }");
-
-
+            
             var builder = Builders<Device>.Filter;
             var filter = builder.Empty;
-            filter &= Builders<Device>.Filter.Eq(d => d.DeviceProperties., DeviceStatus.Connected);
-
-            foreach (PropertyInfo property in testRun.DesiredDeviceProperties.GetType().GetProperties())
+            filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
+            foreach(var property in testRun.DeviceFilter)
             {
-                var Key = property.Name;
-                var Value = property.GetValue(testRun.DesiredDeviceProperties, null);
-
-                switch (Key) 
-                {
-                    case "Model":
-                        
-                        break;
-                    case "AndroidVersion":
-                        break;
-
-                }
-                
+                filter &= Builders<Device>.Filter.Eq(d => , DeviceStatus.Connected);
             }
 
             //JObject desiredDeviceProperties = JObject.Parse(testRun.DesiredDeviceProperties);
