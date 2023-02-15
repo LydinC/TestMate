@@ -6,11 +6,12 @@ using System.Threading.Tasks;
 
 namespace TestMate.Common.Enums
 {
-    public enum DeviceScreenOrientation
+    public enum TestRunStatus
     {
-        Up = 0, //0°
-        Right = 1, //90°
-        Down = 2, //180°
-        Left = 3 //270°
+        New = 0,
+        Processing = 1,
+        Completed = 2,
+        Failed = 3,
+        FailedNoDevices = 4
     }
 }

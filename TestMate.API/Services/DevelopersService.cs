@@ -23,7 +23,6 @@ public class DevelopersService : IDevelopersService
         _mapper = mapper;
         _jwtAuthenticationService = jwtAuthenticationService;
     }
-
     public async Task<APIResponse<DeveloperLoginResultDTO>> Login(DeveloperLoginDTO developerLoginDTO)
     {
         try

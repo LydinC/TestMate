@@ -13,6 +13,7 @@ namespace TestMate.Common.Models.TestRequests
 
         [Required]
         [BsonRequired]
+        [BsonRepresentation(BsonType.String)]
         public Guid RequestId { get; set; }
 
         [Required]
@@ -33,7 +34,7 @@ namespace TestMate.Common.Models.TestRequests
 
         [Required]
         [BsonRequired]
-        public TestRunConfiguration TestRunConfiguration{ get; set; }
+        public TestRequestConfiguration TestRunConfiguration { get; set; }
 
 
         public TestRequest()

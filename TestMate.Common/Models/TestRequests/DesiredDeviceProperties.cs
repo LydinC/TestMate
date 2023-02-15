@@ -22,4 +22,5 @@ namespace TestMate.Common.Models.TestRequests
         public List<ScreenResolution>? ScreenResolution { get; set; }
         public List<string>? TimeZoneInfo { get; set; }
     }
+
 }

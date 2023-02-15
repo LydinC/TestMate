@@ -8,7 +8,7 @@ using TestMate.Common.Enums;
 
 namespace TestMate.Common.Models.TestRequests
 {
-    public class TestRunConfiguration
+    public class TestRequestConfiguration
     {
         [Required]
         public string ApplicationUnderTest { get; set; }
@@ -16,28 +16,24 @@ namespace TestMate.Common.Models.TestRequests
         [Required]
         public string TestSolutionPath { get; set; }
 
-
         [Required]
         public string DesiredDeviceProperties { get; set; } = null!;
 
         [Required]
-        public TestRunConstraints Constraints { get; set; }
+        public TestRequestConstraints Constraints { get; set; }
 
         public ContextConifguration ContextConifguration { get; set; } = null!;
 
-
-        public TestRunConfiguration(string applicationUnderTest, string testSolutionPath, string desiredDeviceProperties, TestRunConstraints constraints, ContextConifguration contextConifguration) {
+        public TestRequestConfiguration(string applicationUnderTest, string testSolutionPath, string desiredDeviceProperties, TestRequestConstraints constraints, ContextConifguration contextConifguration) {
             ApplicationUnderTest = applicationUnderTest;
             TestSolutionPath = testSolutionPath;
             DesiredDeviceProperties = desiredDeviceProperties;
             Constraints = constraints;
             ContextConifguration = contextConifguration;
-        }
-    
+        }    
     }
 
-
-    public class TestRunConstraints 
+    public class TestRequestConstraints 
     {
         public int maxNumberOfDevices { get; set; }
         public TimeOnly totalRunDuration { get; set; }

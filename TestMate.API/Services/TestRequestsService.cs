@@ -74,17 +74,5 @@ namespace TestMate.API.Services
             }
         }
 
-        ////Updates test request (by id) 
-        //public async Task UpdateAsync(string id, TestRequest updatedTestRequest)
-        //{
-        //    await _testRequestsCollection.ReplaceOneAsync(x => x.Id == id, updatedTestRequest);
-        //}
-
-        ////Removes test request (by username)
-        //public async Task RemoveAsync(string id)
-        //{
-        //    await _testRequestsCollection.DeleteOneAsync(x => x.Id == id);
-        //}
-
     }
 }
