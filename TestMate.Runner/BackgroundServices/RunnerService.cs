@@ -200,8 +200,10 @@ namespace TestMate.Runner.BackgroundServices
             testRun.DesiredDeviceProperties = JsonConvert.DeserializeObject<DesiredDeviceProperties>("{\"Model\": \"SM-G960F\", \"AndroidVersion\": \"> 10\" }");
 
 
-            var builder = Builders<Device>.Filter.Empty;
-           
+            var builder = Builders<Device>.Filter;
+            var filter = builder.Empty;
+            filter &= Builders<Device>.Filter.Eq(d => d.DeviceProperties., DeviceStatus.Connected);
+
             foreach (PropertyInfo property in testRun.DesiredDeviceProperties.GetType().GetProperties())
             {
                 var Key = property.Name;
@@ -210,7 +212,7 @@ namespace TestMate.Runner.BackgroundServices
                 switch (Key) 
                 {
                     case "Model":
-
+                        
                         break;
                     case "AndroidVersion":
                         break;
