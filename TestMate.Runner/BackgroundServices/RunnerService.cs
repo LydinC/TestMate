@@ -157,7 +157,6 @@ namespace TestMate.Runner.BackgroundServices
 
             using (var changeStream = _testRunsCollection.Watch(pipeline, options))
             {
-                
                 // Listen for change events
                 await changeStream.ForEachAsync(async change =>
                 {
