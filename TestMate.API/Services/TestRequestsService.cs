@@ -107,7 +107,7 @@ namespace TestMate.API.Services
 
             if (input != null)
             {
-                List<Dictionary<string, object>> deviceFilters = GetDeviceFilterPermutations(input);
+                List<Dictionary<string, dynamic>> deviceFilters = GetDeviceFilterPermutations(input);
                 _logger.LogDebug("List of device filters :" + deviceFilters.ToString());
 
                 foreach (Dictionary<string, object> deviceFilter in deviceFilters)
@@ -119,7 +119,7 @@ namespace TestMate.API.Services
             return testRuns;
         }
 
-        public static List<Dictionary<string, object>> GetDeviceFilterPermutations(Dictionary<string, List<object>> input)
+        public static List<Dictionary<string, dynamic>> GetDeviceFilterPermutations(Dictionary<string, List<object>> input)
         {
             var permutations = new List<Dictionary<string, object>>();
             if (input == null || input.Count == 0)
