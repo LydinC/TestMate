@@ -19,17 +19,17 @@ namespace TestMate.Common.Models.TestRequests
         [Required]
         public DesiredDeviceProperties DesiredDeviceProperties { get; set; } = null!;
 
-        [Required]
-        public TestRequestConstraints Constraints { get; set; }
+        //[Required]
+        //public TestRequestConstraints Constraints { get; set; }
 
-        public ContextConfiguration ContextConfiguration { get; set; } = null!;
+        //public ContextConfiguration ContextConfiguration { get; set; } = null!;
 
-        public TestRequestConfiguration(string applicationUnderTest, string testSolutionPath, DesiredDeviceProperties desiredDeviceProperties, TestRequestConstraints constraints, ContextConfiguration contextConfiguration) {
+        public TestRequestConfiguration(string applicationUnderTest, string testSolutionPath, DesiredDeviceProperties desiredDeviceProperties) {
             ApplicationUnderTest = applicationUnderTest;
             TestSolutionPath = testSolutionPath;
             DesiredDeviceProperties = desiredDeviceProperties;
-            Constraints = constraints;
-            ContextConfiguration = contextConfiguration;
+            //Constraints = constraints;
+            //ContextConfiguration = contextConfiguration;
         }    
     }
 

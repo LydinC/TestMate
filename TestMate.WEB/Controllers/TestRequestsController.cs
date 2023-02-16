@@ -3,6 +3,7 @@ using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.DataTransferObjects.TestRequests;
 using TestMate.Common.Utils;
 using TestMate.WEB.Helpers;
+using TestMate.Common.Models.TestRequests;
 
 namespace TestMate.WEB.Controllers
 {
@@ -45,7 +46,6 @@ namespace TestMate.WEB.Controllers
         {
             Guid RequestId = Guid.NewGuid();
 
-
             FileUploadResult fileUploadResult = FileUploadUtil.UploadTestRequestFiles(RequestId.ToString(), testRequestWebCreateDTO.TestSolution, testRequestWebCreateDTO.ApplicationUnderTest);
  
             if (!fileUploadResult.Success){
@@ -56,11 +56,10 @@ namespace TestMate.WEB.Controllers
             {
                 TestRequestCreateDTO testRequestCreateDTO = new TestRequestCreateDTO(
                     requestId: RequestId,
-                    applicationUnderTestPath: fileUploadResult.ApplicationUnderTestPath,
-                    testSolutionPath: fileUploadResult.TestSolutionPath,
-                    appiumOptions: testRequestWebCreateDTO.AppiumOptions,
-                    contextConfiguration: testRequestWebCreateDTO.ContextConfiguration
-                    );
+                    configuration: new TestRequestConfiguration(fileUploadResult.ApplicationUnderTestPath,
+                                                                fileUploadResult.TestSolutionPath,
+                                                                testRequestWebCreateDTO.DesiredDeviceProperties)
+                 );
                 
 
                 var response = await _client.PostAsJsonAsync<TestRequestCreateDTO>(_client.BaseAddress + "/Create", testRequestCreateDTO);

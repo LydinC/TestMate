@@ -11,7 +11,6 @@ namespace TestMate.API.Profiles
         public DevicesProfile()
         {
             CreateMap<DevicesConnectDTO, Device>();
-
         }
     }
 }

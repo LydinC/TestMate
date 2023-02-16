@@ -9,25 +9,13 @@ namespace TestMate.Common.DataTransferObjects.TestRequests
         [Required]
         public Guid RequestId { get; set; }
 
-        [Required(ErrorMessage = "Application Under Test (APK) is required")]
-        public string ApplicationUnderTestPath { get; set; } = null!;
+        [Required(ErrorMessage = "TestRequestConfiguration is required!")]
+        public TestRequestConfiguration Configuration { get; set; }
 
-        [Required(ErrorMessage = "Test Solution Path is required")]
-        public string TestSolutionPath { get; set; } = null!;
-
-        [Required(ErrorMessage = "Desired Device Properties are required")]
-        public DesiredDeviceProperties DesiredDeviceProperties { get; set; } = null!;
-
-        //[Required(ErrorMessage = "Context Configurations are required")]
-        //public string ContextConfiguration { get; set; } = null!;
-
-        public TestRequestCreateDTO(Guid requestId, string applicationUnderTestPath, string testSolutionPath, DesiredDeviceProperties desiredDeviceProperties)
+        public TestRequestCreateDTO(Guid requestId, TestRequestConfiguration configuration)
         {
             RequestId = requestId;
-            ApplicationUnderTestPath = applicationUnderTestPath;
-            TestSolutionPath = testSolutionPath;
-            DesiredDeviceProperties = desiredDeviceProperties;
-            //ContextConfiguration = contextConfiguration;
+            Configuration = configuration;
         }
     }
 }

@@ -157,27 +157,35 @@ namespace TestMate.Runner.BackgroundServices
 
             using (var changeStream = _testRunsCollection.Watch(pipeline, options))
             {
+                
                 // Listen for change events
                 await changeStream.ForEachAsync(async change =>
                 {
-                    // Check if the change is a new insert
-                    if (change.OperationType == ChangeStreamOperationType.Insert)
+                    try
                     {
-                        // Publish the test request as a message to RabbitMQ Queue
-                        var testRun = change.FullDocument;
-                        var message = JsonConvert.SerializeObject(testRun);
-                        _logger.LogInformation($"Publishing message: {message} to exchange '{testRunExchange}'");
+                        // Check if the change is a new insert
+                        if (change.OperationType == ChangeStreamOperationType.Insert)
+                        {
+                            // Publish the test request as a message to RabbitMQ Queue
+                            var testRun = change.FullDocument;
+                            var message = JsonConvert.SerializeObject(testRun);
+                            _logger.LogInformation($"Publishing message: {message} to exchange '{testRunExchange}'");
 
-                        // Publish the message to the queue
-                        var body = Encoding.UTF8.GetBytes(message);
-                        _channel.BasicPublish(
-                            exchange: testRunExchange,
-                            routingKey: testRunRoutingKey,
-                            basicProperties: null,
-                            body: body
-                            );
+                            // Publish the message to the queue
+                            var body = Encoding.UTF8.GetBytes(message);
+                            _channel.BasicPublish(
+                                exchange: testRunExchange,
+                                routingKey: testRunRoutingKey,
+                                basicProperties: null,
+                                body: body
+                                );
 
-                        _logger.LogInformation("Published successfully!");
+                            _logger.LogInformation("Published successfully!");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Failed to publish Test Run document {change.DocumentKey} in queue! -> " + ex.Message);
                     }
                 });
             }
@@ -185,7 +193,6 @@ namespace TestMate.Runner.BackgroundServices
 
         public override Task StopAsync(CancellationToken cancellationToken)
         {
-            _channel.Dispose();
             _channel.Close();
             _connection.Close();
             return base.StopAsync(cancellationToken);
@@ -203,7 +210,8 @@ namespace TestMate.Runner.BackgroundServices
             filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
             foreach(var property in testRun.DeviceFilter)
             {
-                filter &= Builders<Device>.Filter.Eq(d => , DeviceStatus.Connected);
+               //TODO: FIX THIS FILTER TO COVER FOR Device.DEVICEPROPERTIES and then the key
+                filter &= Builders<Device>.Filter.Eq(property.Key, property.Value);
             }
 
             //JObject desiredDeviceProperties = JObject.Parse(testRun.DesiredDeviceProperties);
@@ -275,8 +283,8 @@ namespace TestMate.Runner.BackgroundServices
             //);
 
 
-            FilterDefinition<Device> filter = "{\"DeviceProperties.SdkVersion\" : {$gte : 29}}";
-            filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
+            //FilterDefinition<Device> filter = "{\"DeviceProperties.SdkVersion\" : {$gte : 29}}";
+            //filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
 
             Device? device = null;
 

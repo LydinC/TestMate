@@ -34,15 +34,16 @@ namespace TestMate.Common.Models.TestRequests
 
         [Required]
         [BsonRequired]
-        public TestRequestConfiguration TestRequestConfiguration { get; set; }
+        public TestRequestConfiguration Configuration { get; set; }
 
 
-        public TestRequest()
+        public TestRequest(TestRequestConfiguration configuration)
         {
             RequestId = Guid.NewGuid();
             Timestamp = DateTime.UtcNow;
             Status = TestRequestStatus.New;
             RetryCount = 0;
+            Configuration = configuration;
         }
 
     }
