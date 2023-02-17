@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
+using TestMate.Common.Models.TestRequests;
 
 namespace TestMate.Common.DataTransferObjects.TestRequests
 {
@@ -16,7 +17,7 @@ namespace TestMate.Common.DataTransferObjects.TestRequests
         public string SolutionExecutable { get; set; } = null!;
 
         [Required(ErrorMessage = "Appium Options are required")]
-        public string AppiumOptions { get; set; } = null!;
+        public DesiredDeviceProperties DesiredDeviceProperties { get; set; } = null!;
 
         [Required(ErrorMessage = "Context Configurations are required")]
         public string ContextConfiguration { get; set; } = null!;

@@ -21,7 +21,6 @@ namespace TestMate.WEB.Controllers
             return View();
         }
 
-
         [HttpPost]
         [Route("Developers/Login")]
         public async Task<IActionResult> Login(DeveloperLoginDTO developerLoginDTO)
@@ -29,8 +28,7 @@ namespace TestMate.WEB.Controllers
             if (ModelState.IsValid)
             {
                 var response = await _client.PostAsJsonAsync<DeveloperLoginDTO>(_client.BaseAddress + "/Login", developerLoginDTO);
-
-                var result = await response.ReadContentAsync<APIResponse<DeveloperLoginResultDTO>>();
+                APIResponse<DeveloperLoginResultDTO> result = await response.ReadContentAsync<APIResponse<DeveloperLoginResultDTO>>();
 
                 if (result.Success)
                 {
@@ -51,7 +49,6 @@ namespace TestMate.WEB.Controllers
                 else
                 {
                     TempData["Error"] = result.Message;
-                    return RedirectToAction("Index", "Home");
                 }
             }
             return RedirectToAction("Index", "Home");
@@ -62,8 +59,8 @@ namespace TestMate.WEB.Controllers
         public async Task<IActionResult> Developers()
         {
             var response = await _client.GetAsync("Developers");
-            var result = await response.ReadContentAsync<APIResponse<List<DeveloperDetailsDTO>>>();
-
+            APIResponse<List<DeveloperDetailsDTO>> result = await response.ReadContentAsync<APIResponse<List<DeveloperDetailsDTO>>>();
+            
             if (result.Success)
             {
                 return View(result.Data);
@@ -80,7 +77,7 @@ namespace TestMate.WEB.Controllers
         {
 
             var response = await _client.GetAsync(_client.BaseAddress + "/Details");
-            var result = await response.ReadContentAsync<APIResponse<DeveloperDetailsDTO>>();
+            APIResponse<DeveloperDetailsDTO> result = await response.ReadContentAsync<APIResponse<DeveloperDetailsDTO>>();
 
             if (result.Success)
             {
@@ -105,7 +102,7 @@ namespace TestMate.WEB.Controllers
         public async Task<IActionResult> Register(DeveloperRegisterDTO developer)
         {
             var response = await _client.PostAsJsonAsync<DeveloperRegisterDTO>(_client.BaseAddress + "/Register", developer);
-            var result = await response.ReadContentAsync<APIResponse<DeveloperRegisterDTO>>();
+            APIResponse<DeveloperRegisterDTO> result = await response.ReadContentAsync<APIResponse<DeveloperRegisterDTO>>();
 
             if (result.Success)
             {

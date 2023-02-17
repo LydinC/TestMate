@@ -8,7 +8,7 @@ using TestMate.Common.Enums;
 
 namespace TestMate.Common.Models.TestRequests
 {
-    public class TestRunConfiguration
+    public class TestRequestConfiguration
     {
         [Required]
         public string ApplicationUnderTest { get; set; }
@@ -16,35 +16,31 @@ namespace TestMate.Common.Models.TestRequests
         [Required]
         public string TestSolutionPath { get; set; }
 
-
         [Required]
-        public string DesiredDeviceProperties { get; set; } = null!;
+        public DesiredDeviceProperties DesiredDeviceProperties { get; set; } = null!;
 
-        [Required]
-        public TestRunConstraints Constraints { get; set; }
+        //[Required]
+        //public TestRequestConstraints Constraints { get; set; }
 
-        public ContextConifguration ContextConifguration { get; set; } = null!;
+        //public ContextConfiguration ContextConfiguration { get; set; } = null!;
 
-
-        public TestRunConfiguration(string applicationUnderTest, string testSolutionPath, string desiredDeviceProperties, TestRunConstraints constraints, ContextConifguration contextConifguration) {
+        public TestRequestConfiguration(string applicationUnderTest, string testSolutionPath, DesiredDeviceProperties desiredDeviceProperties) {
             ApplicationUnderTest = applicationUnderTest;
             TestSolutionPath = testSolutionPath;
             DesiredDeviceProperties = desiredDeviceProperties;
-            Constraints = constraints;
-            ContextConifguration = contextConifguration;
-        }
-    
+            //Constraints = constraints;
+            //ContextConfiguration = contextConfiguration;
+        }    
     }
 
-
-    public class TestRunConstraints 
+    public class TestRequestConstraints 
     {
         public int maxNumberOfDevices { get; set; }
         public TimeOnly totalRunDuration { get; set; }
         public int maxNumberOfContexts { get; set; }
     }
 
-    public class ContextConifguration
+    public class ContextConfiguration
     {
 
         //STILL TO CHECK IF MANIPULATING THESE OPTIONS IS VIABLE OR NOT

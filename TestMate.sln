@@ -11,7 +11,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestMate.API", "TestMate.AP
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestMate.Runner", "TestMate.Runner\TestMate.Runner.csproj", "{C3C7C349-2FAF-417B-8839-D8D540B3A8CD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestMate.Extender", "TestMate.Extender\TestMate.Extender.csproj", "{627F1BA1-3662-429A-A48A-7B0C1E8096FC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestMate.Extender", "TestMate.Extender\TestMate.Extender.csproj", "{627F1BA1-3662-429A-A48A-7B0C1E8096FC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{409E8AAC-48F3-41DC-ADD6-EED8811F368B}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -12,4 +12,5 @@ public class DatabaseSettings
 
     public string DevelopersCollectionName { get; set; } = null!;
     public string TestRequestsCollectionName { get; set; } = null!;
+    public string TestRunsCollectionName { get; set; } = null!;
 }
