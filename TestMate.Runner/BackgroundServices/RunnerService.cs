@@ -209,8 +209,26 @@ namespace TestMate.Runner.BackgroundServices
             filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
             foreach(var property in testRun.DeviceFilter)
             {
-               //TODO: FIX THIS FILTER TO COVER FOR Device.DEVICEPROPERTIES and then the key
-                filter &= Builders<Device>.Filter.Eq(property.Key, property.Value);
+                string key = "DeviceProperties." + property.Key;
+                string value = property.Value;
+                if (property.Key == "AndroidVersion" || property.Key == "SdkVersion")
+                {
+                    filter &= Builders<Device>.Filter.Eq(key, int.Parse(value));
+                }
+                else if (property.Key == "ScreenResolution") 
+                {
+                    ScreenResolution screenResolution = JsonConvert.DeserializeObject<ScreenResolution>(value);
+                    filter &= Builders<Device>.Filter.Eq(key, screenResolution);
+                }
+                else if (property.Key == "Battery")
+                {
+                    BatteryInfo batteryInfo = JsonConvert.DeserializeObject<BatteryInfo>(value);
+                    filter &= Builders<Device>.Filter.Eq(key, batteryInfo);
+                }
+                else 
+                {
+                    filter &= Builders<Device>.Filter.Eq("DeviceProperties." + property.Key, property.Value);
+                }
             }
 
             //JObject desiredDeviceProperties = JObject.Parse(testRun.DesiredDeviceProperties);
@@ -276,14 +294,6 @@ namespace TestMate.Runner.BackgroundServices
             // - Context selection parameters
             // - Test run constrains (e.g. max devices, max contexts, max runtime)
 
-            //var filter = Builders<Device>.Filter.And(
-            //    Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected),
-            //    Builders<Device>.Filter.Eq(d => d.DeviceProperties.Model, "NE2213")
-            //);
-
-
-            //FilterDefinition<Device> filter = "{\"DeviceProperties.SdkVersion\" : {$gte : 29}}";
-            //filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
 
             Device? device = null;
 

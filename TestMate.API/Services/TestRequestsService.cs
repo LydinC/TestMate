@@ -96,8 +96,7 @@ namespace TestMate.API.Services
         {
             List<TestRun> testRuns = new List<TestRun>();
 
-            DesiredDeviceProperties deviceProperties = testRequest.Configuration.DesiredDeviceProperties;
-
+           
             //creating json options to ignore any null values in the desired device properties object
             JsonSerializerOptions options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
             var jsonString = JsonSerializer.Serialize(testRequest.Configuration.DesiredDeviceProperties, options);
@@ -105,10 +104,10 @@ namespace TestMate.API.Services
 
             if (input != null)
             {
-                List<Dictionary<string, object>> deviceFilters = GetDeviceFilterPermutations(input);
+                List<Dictionary<string, string>> deviceFilters = GetDeviceFilterPermutations(input);
                 _logger.LogDebug("List of device filters :" + deviceFilters.ToString());
 
-                foreach (Dictionary<string, object> deviceFilter in deviceFilters)
+                foreach (Dictionary<string, string> deviceFilter in deviceFilters)
                 {
                    
                     testRuns.Add(new TestRun(testRequest.RequestId, deviceFilter, testRequest.Configuration.ApplicationUnderTest, testRequest.Configuration.TestSolutionPath));
@@ -118,9 +117,9 @@ namespace TestMate.API.Services
             return testRuns;
         }
 
-        public static List<Dictionary<string, object>> GetDeviceFilterPermutations(Dictionary<string, List<object>> input)
+        public static List<Dictionary<string, string>> GetDeviceFilterPermutations(Dictionary<string, List<object>> input)
         {
-            var permutations = new List<Dictionary<string, object>>();
+            var permutations = new List<Dictionary<string, string>>();
             if (input == null || input.Count == 0)
             {
                 return permutations;
@@ -128,18 +127,18 @@ namespace TestMate.API.Services
             var keys = input.Keys.ToArray();
             var values = input.Values.ToArray();
 
-            var result = new Dictionary<string, object>();
+            var result = new Dictionary<string, string>();
             AddNextPermutation(keys, values, 0, result, permutations);
             return permutations;
         }
 
         private static void AddNextPermutation(string[] keys, List<object>[] values, int currentIndex,
-                                                Dictionary<string, object> currentPermutation, List<Dictionary<string, object>> permutations)
+                                                Dictionary<string, string> currentPermutation, List<Dictionary<string, string>> permutations)
         {
             // base case: when currentIndex is equal to the number of keys
             if (currentIndex == keys.Length)
             {
-                var newPermutation = new Dictionary<string, object>(currentPermutation);
+                var newPermutation = new Dictionary<string, string>(currentPermutation);
                 permutations.Add(newPermutation);
                 return;
             }
@@ -147,7 +146,8 @@ namespace TestMate.API.Services
             // recursive case: iterate through all values for the current key and add to the permutation
             foreach (var value in values[currentIndex])
             {
-                currentPermutation[keys[currentIndex]] = value;
+                //casting value into a string so that deviceFilter can handle all types of desiredDeviceElements
+                currentPermutation[keys[currentIndex]] = value.ToString();
 
                 // add the current key-value pair to the permutation, and move on to the next key
                 AddNextPermutation(keys, values, currentIndex + 1, currentPermutation, permutations);

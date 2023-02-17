@@ -24,7 +24,7 @@ namespace TestMate.Common.Models.TestRequests
 
         [Required]
         [BsonRequired]
-        public Dictionary<string, object> DeviceFilter{ get; set; }
+        public Dictionary<string, string> DeviceFilter{ get; set; }
 
         [Required]
         [BsonRequired]
@@ -42,7 +42,7 @@ namespace TestMate.Common.Models.TestRequests
         [BsonRequired]
         public int RetryCount { get; set; }
 
-        public TestRun(Guid testRequestID, Dictionary<string, object> deviceFilter, string applicationUnderTest, string testSolutionPath)
+        public TestRun(Guid testRequestID, Dictionary<string, string> deviceFilter, string applicationUnderTest, string testSolutionPath)
         {
             TestRequestID = testRequestID;
             DeviceFilter = deviceFilter;
