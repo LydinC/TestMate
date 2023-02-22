@@ -4,6 +4,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Diagnostics;
 using System.Net;
+using System.Text.RegularExpressions;
 using TestMate.API.Settings;
 using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.DataTransferObjects.Developers;
@@ -120,14 +121,14 @@ public class DevicesService
                             } 
                             else
                             {
-                                //Make sure the Status is connected in MongoDB for the deviceInDbWithSameIP
+                                //TODO: Make sure the Status is connected in MongoDB for the deviceInDbWithSameIP
                                 //Update Properties too?
                             }
                         }
                     }
                     else 
                     {
-                        return new APIResponse<Device>(Status.Error, "Could not retrieve serial number for device with IP: " +deviceDTO.IP);
+                        return new APIResponse<Device>(Status.Error, "Could not retrieve serial number for device with IP: " + deviceDTO.IP);
                     }
 
                     //TODO: Make sure that device in DB is correct (same Ip + same Serial + Status is connected?)
@@ -137,8 +138,7 @@ public class DevicesService
                 {
                     port = ConnectivityUtil.GetAvailableTcpIpPort();
 
-                    //TODO: check if there are other stable means how we can retrieve the serial number of the device
-                    string serialNumber = adbDevices.FirstOrDefault(x => !x.StartsWith("192"));
+                    string? serialNumber = adbDevices.FirstOrDefault(x => !Regex.IsMatch(x, @"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"));
                     if (serialNumber == null)
                     {
                         return new APIResponse<Device>(Status.Error, "Could not retrieve ADB Serial Number for device with IP " + deviceDTO.IP + ". Make sure you connect using USB the first time.");

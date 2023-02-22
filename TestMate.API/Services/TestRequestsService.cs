@@ -1,17 +1,14 @@
 ﻿using AutoMapper;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using TestMate.API.Settings;
 using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.DataTransferObjects.TestRequests;
 using TestMate.Common.Enums;
 using TestMate.Common.Models.TestRequests;
-using Microsoft.IdentityModel.JsonWebTokens;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
-using System.Reflection;
-using TestMate.Common.Models.Devices;
+using TestMate.Common.Models.TestRuns;
 
 namespace TestMate.API.Services
 {
@@ -45,7 +42,7 @@ namespace TestMate.API.Services
             }
         }
 
-        public async Task<APIResponse<TestRequest>> GetById(string id)
+        public async Task<APIResponse<TestRequest>> GetDetails(string id)
         {
             try
             {
@@ -55,6 +52,20 @@ namespace TestMate.API.Services
             catch (Exception ex)
             {
                 return new APIResponse<TestRequest>(Status.Error, ex.Message);
+            }
+        }
+
+
+        public async Task<APIResponse<TestRequestStatus>> GetStatus(string id)
+        {
+            try
+            {
+                var testRequest = await _testRequestsCollection.Find(x => x.Id == id).FirstAsync();
+                return new APIResponse<TestRequestStatus>(testRequest.Status);
+            }
+            catch (Exception ex)
+            {
+                return new APIResponse<TestRequestStatus>(Status.Error, ex.Message);
             }
         }
 

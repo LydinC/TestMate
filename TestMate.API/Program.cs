@@ -18,6 +18,7 @@ builder.Services.AddSingleton<DevicesService>();
 builder.Services.AddSingleton<UsersService>();
 builder.Services.AddSingleton<DevelopersService>();
 builder.Services.AddSingleton<TestRequestsService>();
+builder.Services.AddSingleton<TestRunsService>();
 builder.Services.AddSingleton<JWTAuthenticationService>();
 
 

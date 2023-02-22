@@ -9,7 +9,7 @@ using System.ComponentModel.DataAnnotations;
 using TestMate.Common.Models.Devices;
 using TestMate.Common.Enums;
 
-namespace TestMate.Common.Models.TestRequests
+namespace TestMate.Common.Models.TestRuns
 {
     public class TestRun
     {
@@ -24,7 +24,7 @@ namespace TestMate.Common.Models.TestRequests
 
         [Required]
         [BsonRequired]
-        public Dictionary<string, string> DeviceFilter{ get; set; }
+        public Dictionary<string, string> DeviceFilter { get; set; }
 
         [Required]
         [BsonRequired]
@@ -54,7 +54,7 @@ namespace TestMate.Common.Models.TestRequests
 
         public void incrementRetryCount()
         {
-            this.RetryCount++;
+            RetryCount++;
         }
     }
 }

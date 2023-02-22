@@ -35,10 +35,10 @@ public class TestRequestsController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet("{id}")]
-    public async Task<IActionResult> Get(string Id)
+    [HttpGet("Details")]
+    public async Task<IActionResult> GetDetails(string Id)
     {
-        var result = await _testRequestsService.GetById(Id);
+        var result = await _testRequestsService.GetDetails(Id);
 
         if (result.Success)
         {
@@ -49,6 +49,23 @@ public class TestRequestsController : ControllerBase
             return NotFound(result);
         }
     }
+
+    [Authorize]
+    [HttpGet("{id}/Status")]
+    public async Task<IActionResult> Status(string Id)
+    {
+        var result = await _testRequestsService.GetStatus(Id);
+
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        else
+        {
+            return NotFound(result);
+        }
+    }
+
 
     [Authorize]
     [HttpPost("Create")]

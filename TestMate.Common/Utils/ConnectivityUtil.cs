@@ -111,7 +111,6 @@ namespace TestMate.Common.Utils
             }
         }
 
-
         public static List<string> GetADBDevices()
         {
             List<string> deviceSerials = new List<string>();
@@ -121,10 +120,10 @@ namespace TestMate.Common.Utils
                 string adbCommand = "adb devices";
                 string output = ExecuteADBCommand(adbCommand);
                 
-                var serialRegexPattern = new Regex("^([a-zA-Z0-9\\-]+)(\\s+)(device)");
-                var ipRegexPattern = new Regex(@"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\:(\d{1,5})\s+device");
-                var lines = output.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var line in lines)
+                Regex serialRegexPattern = new Regex("^([a-zA-Z0-9\\-]+)(\\s+)(device)");
+                Regex ipRegexPattern = new Regex(@"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\:(\d{1,5})\s+device");
+                string[] lines = output.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string line in lines)
                 {
                     if (serialRegexPattern.IsMatch(line))
                     {
@@ -156,7 +155,7 @@ namespace TestMate.Common.Utils
                 "gsm.operator.alpha",
                 "ro.product.cpu.abi",
                 "persist.sys.timezone",
-                //wm size is embedded in command
+                //additional properties are included in adb command (ex: wm size & battery)
             };
 
             string propertiesList = string.Join("|", properties);
@@ -168,17 +167,18 @@ namespace TestMate.Common.Utils
             
             return MapDeviceProperties(output);
         }
+
         private static DeviceProperties MapDeviceProperties(string adbOutput)
         {
-            var properties = adbOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[] properties = adbOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
             DeviceProperties deviceProperties = new DeviceProperties();
-            BatteryInfo batteryInfo = new BatteryInfo();
-            deviceProperties.Battery = batteryInfo;
+            Battery battery = new Battery();
+            deviceProperties.Battery = battery;
             
-            foreach (var property in properties)
+            foreach (string property in properties)
             {
-                var key = property.Split(':')[0].Trim();
-                var value = property.Split(':')[1].Trim();
+                string key = property.Split(':')[0].Trim();
+                string value = property.Split(':')[1].Trim();
                 switch (key)
                 {
                     case "ro.product.model":
@@ -215,19 +215,19 @@ namespace TestMate.Common.Utils
 
                     //Battery Related
                     case "level":
-                        batteryInfo.Level = int.Parse(value);
+                        battery.Level = int.Parse(value);
                         break;
                     case "scale":
-                        batteryInfo.Scale = int.Parse(value);
+                        battery.Scale = int.Parse(value);
                         break;
                     case "AC powered":
-                        batteryInfo.ACPowered = Boolean.Parse(value);
+                        battery.ACPowered = Boolean.Parse(value);
                         break;
                     case "USB powered":
-                        batteryInfo.USBPowered = Boolean.Parse(value);
+                        battery.USBPowered = Boolean.Parse(value);
                         break;
                     case "Wireless powered":
-                        batteryInfo.WirelessPowered = Boolean.Parse(value);
+                        battery.WirelessPowered = Boolean.Parse(value);
                         break;
 
                 }

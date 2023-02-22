@@ -23,7 +23,7 @@ namespace TestMate.Common.Models.Devices
         [Required]
         public ScreenResolution ScreenResolution{ get; set; }
         [Required]
-        public BatteryInfo Battery { get; set; }
+        public Battery Battery { get; set; }
         [Required]
         public string TimeZone { get; set; }
     }
@@ -38,7 +38,7 @@ namespace TestMate.Common.Models.Devices
         }
     }
 
-    public class BatteryInfo
+    public class Battery
     {
         public int Level { get; set; }
         public int Scale { get; set; }
@@ -46,7 +46,7 @@ namespace TestMate.Common.Models.Devices
         public bool WirelessPowered { get; set; }
         public bool USBPowered { get; set; }
         
-        public BatteryInfo(int level = 0, int scale = 0, bool acPowered = false, bool usbPowered = false, bool wirelessPowered = false)
+        public Battery(int level = 0, int scale = 0, bool acPowered = false, bool usbPowered = false, bool wirelessPowered = false)
         {
             this.Level = Level;
             this.Scale = Scale;
