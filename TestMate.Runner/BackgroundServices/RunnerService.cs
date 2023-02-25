@@ -32,6 +32,8 @@ namespace TestMate.Runner.BackgroundServices
         string testRunRoutingKey = "testRunRoutingKey";
 
         string TestResultsWorkingPath = "C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\";
+        int TestRunRetryLimit = 3;
+        int TestRunRetryDelay = 300000; //5 minutes 
 
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration)
         {
@@ -102,7 +104,7 @@ namespace TestMate.Runner.BackgroundServices
                         {
                             _logger.LogWarning($"No available device found to serve TestRun {testRun.Id}!");
 
-                            if (testRun.RetryCount < 3)
+                            if (testRun.RetryCount < TestRunRetryLimit)
                             {
                                 testRun.incrementRetryCount();
                                 await incrementTestRunRetryCount(testRun);
@@ -112,7 +114,7 @@ namespace TestMate.Runner.BackgroundServices
                                 _logger.LogInformation($"Re-publishing message: {message} ");
                                 var properties = _channel.CreateBasicProperties();
                                 properties.Headers = new Dictionary<string, object>();
-                                properties.Headers.Add("x-delay", 300000); //5 minutes
+                                properties.Headers.Add("x-delay", TestRunRetryDelay); 
 
                                 // Publish the message to the queue
                                 Byte[] body = Encoding.UTF8.GetBytes(message);
@@ -126,7 +128,7 @@ namespace TestMate.Runner.BackgroundServices
                             }
                             else
                             {
-                                _logger.LogError("Failing to serve test run after 3 attempts.");
+                                _logger.LogError($"Failing to serve test run after {TestRunRetryLimit} attempts.");
                                 await updateTestRunStatus(testRun, TestRunStatus.FailedNoDevices);
                             }
                         }
@@ -209,9 +211,6 @@ namespace TestMate.Runner.BackgroundServices
         {
             _logger.LogInformation("Triggering process of servicing Test Run " + testRun.Id.ToString());
 
-            //testRun.TestSolutionPath = "\"C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\Appium Tests\\AppiumTests\\bin\\Debug\\net7.0\\AppiumTests.dll\"";
-            //testRun.ApplicationUnderTest = @"""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\UPLOADS\44fb61fb-62ad-4a92-a562-d8d25fee21c1\Application Under Test\com.xlythe.calculator.material_93.apk""";
-
             FilterDefinition<Device> filter = buildDeviceSelectionFilter(testRun.DeviceFilter);
 
             Device? device = null;
@@ -246,7 +245,7 @@ namespace TestMate.Runner.BackgroundServices
                         await updateTestRunStatus(testRun, TestRunStatus.Processing);
 
                         string udid = $"{device.IP}:{device.TcpIpPort}";
-                        string app = $"{testRun.ApplicationUnderTest}";
+                        string app = $@"{testRun.ApkPath}";
                         string nUnitConsolePath = @"C:\Program Files\NUnit.Console-3.16.2\bin\nunit3-console.exe";
                         string appiumServerUrl = $"{appiumService.ServiceUrl.AbsoluteUri}";
 
@@ -270,13 +269,15 @@ namespace TestMate.Runner.BackgroundServices
                         TestResult testResult = remoteTestRunner.Run(listener: null, TestFilter.Empty, true, LoggingThreshold.All);
                         */
 
-                        string arguments = "\"" + testRun.TestSolutionPath + "\"" +
-                                            " --work=\"" + workingFolder + "\"" +
-                                            " --testparam:AppiumServerUrl=" + appiumServerUrl +
-                                            " --testparam:APP=" + app +
-                                            " --testparam:UDID=" + udid +
-                                            " --out=\"DllOutput.txt\" " +
-                                            " --result=\"NUnitResult.xml\"";
+                        string arguments =  $"\"{testRun.TestExecutablePath}\"" +
+                                            $" --work=\"{workingFolder}\"" +
+                                            $" --testparam:AppiumServerUrl=\"{appiumServerUrl}\"" +
+                                            $" --testparam:APP=\"" + app + "\"" +
+                                            $" --testparam:UDID=\"" + udid + "\"" +
+                                            $" --out=\"TestSolution_ConsoleOutput.txt\" " +
+                                            $" --result=\"NUnitResult.xml\"";
+
+                        File.WriteAllText(workingFolder + "\\NUnitConsole_Arguments.txt", arguments);
 
                         ProcessStartInfo startInfo = new ProcessStartInfo
                         {

@@ -36,7 +36,7 @@ public class TestRequestsController : ControllerBase
 
     [Authorize]
     [HttpGet("Details")]
-    public async Task<IActionResult> GetDetails(string Id)
+    public async Task<IActionResult> GetDetails(Guid Id)
     {
         var result = await _testRequestsService.GetDetails(Id);
 
@@ -52,7 +52,7 @@ public class TestRequestsController : ControllerBase
 
     [Authorize]
     [HttpGet("{id}/Status")]
-    public async Task<IActionResult> Status(string Id)
+    public async Task<IActionResult> Status(Guid Id)
     {
         var result = await _testRequestsService.GetStatus(Id);
 

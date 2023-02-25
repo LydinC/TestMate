@@ -4,6 +4,9 @@ using TestMate.Common.DataTransferObjects.TestRequests;
 using TestMate.Common.Utils;
 using TestMate.WEB.Helpers;
 using TestMate.Common.Models.TestRequests;
+using Newtonsoft.Json;
+using System.IO.Compression;
+using SharpCompress.Common;
 
 namespace TestMate.WEB.Controllers
 {
@@ -46,36 +49,57 @@ namespace TestMate.WEB.Controllers
         {
             Guid RequestId = Guid.NewGuid();
 
-            FileUploadResult fileUploadResult = FileUploadUtil.UploadTestRequestFiles(RequestId.ToString(), testRequestWebCreateDTO.TestSolution, testRequestWebCreateDTO.ApplicationUnderTest);
- 
+            FileUploadResult fileUploadResult = FileUploadUtil.UploadTestRequestFiles(RequestId.ToString(), testRequestWebCreateDTO.TestPackage, testRequestWebCreateDTO.ApplicationUnderTest);
             if (!fileUploadResult.Success){
                 TempData["Error"] = fileUploadResult.Message;
                 return View();
             } 
-            else
+
+            try
             {
+                //TODO: check why providing {"abc": ["samsung"]} still deserializes??????
+                DesiredDeviceProperties desiredDeviceProperties = JsonConvert.DeserializeObject<DesiredDeviceProperties>(testRequestWebCreateDTO.DesiredDeviceProperties);
+                if (desiredDeviceProperties == null) {
+                    throw new Exception("Desired Device Properties cannot be null");
+                }
+
+                //try to find the SolutionExecutable file in the TestSolutionPath
+                string[] files = Directory.GetFiles(fileUploadResult.TestPackagePath, testRequestWebCreateDTO.TestExecutableFileNames, SearchOption.AllDirectories);
+                if (files.Length == 0)
+                {
+                    throw new Exception($"Could not find {testRequestWebCreateDTO.TestExecutableFileNames} within {fileUploadResult.TestPackagePath}");
+                }
+                string TestExecutablePath = files[0];
+
                 TestRequestCreateDTO testRequestCreateDTO = new TestRequestCreateDTO(
                     requestId: RequestId,
-                    configuration: new TestRequestConfiguration(fileUploadResult.ApplicationUnderTestPath,
-                                                                fileUploadResult.TestSolutionPath,
-                                                                testRequestWebCreateDTO.DesiredDeviceProperties)
-                 );
-                
+                    configuration: new TestRequestConfiguration(fileUploadResult.ApkPath,
+                                                                TestExecutablePath,
+                                                                desiredDeviceProperties,
+                                                                testRequestWebCreateDTO.DesiredContextConfiguration
+                                                                )
+                    );
 
                 var response = await _client.PostAsJsonAsync<TestRequestCreateDTO>(_client.BaseAddress + "/Create", testRequestCreateDTO);
                 var result = await response.ReadContentAsync<APIResponse<TestRequestWebCreateResult>>();
                 if (result.Success)
                 {
                     TempData["Success"] = result.Message;
-                    return RedirectToAction("Index", "Home");
+                    return View();
                 }
                 else
                 {
                     TempData["Error"] = result.Message;
                     return View();
                 }
-
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                TempData["Error"] = "Something went wrong! Please try again";
+                return View();
+            }
+
         }
     }
 }
