@@ -18,10 +18,10 @@ public class TestRunsController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet]
-    public async Task<IActionResult> GetTestRuns(string testRequestId)
+    [HttpGet("List")]
+    public async Task<IActionResult> GetTestRuns(Guid RequestId)
     {
-        var result = await _testRunsService.GetTestRunsByTestRequestID(testRequestId);
+        var result = await _testRunsService.GetTestRunsByTestRequestID(RequestId);
 
         if (result.Success)
         {

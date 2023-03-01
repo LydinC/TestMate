@@ -30,6 +30,10 @@ namespace TestMate.Common.Models.TestRequests
 
         [Required]
         [BsonRequired]
+        public int NumberOfTestRuns{ get; set; }
+
+        [Required]
+        [BsonRequired]
         public int RetryCount { get; set; }
 
         [Required]

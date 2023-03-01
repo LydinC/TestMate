@@ -1,11 +1,9 @@
 ﻿@model IEnumerable<TestMate.Common.Models.TestRequests.TestRequest>
 
 @{
-    ViewData["Title"] = "TestRequests";
+    ViewData["Title"] = "View My Test Requests";
 }
-
-<h1>View All Test Requests</h1>
-
+<h1>View My Test Requests</h1>
 <p>
     <a asp-action="Create">Create New</a>
 </p>
@@ -13,19 +11,19 @@
     <thead>
         <tr>
             <th>
-                @Html.DisplayNameFor(model => model.Id)
-            </th>
-            <th>
                 @Html.DisplayNameFor(model => model.RequestId)
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.Status)
             </th>
             <th>
-                @Html.DisplayNameFor(model => model.Requestor)
+                @Html.DisplayNameFor(model => model.NumberOfTestRuns)
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.Timestamp)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.RetryCount)
             </th>
             <th></th>
         </tr>
@@ -34,22 +32,22 @@
 @foreach (var item in Model) {
         <tr>
             <td>
-                @Html.DisplayFor(modelItem => item.Id)
-            </td>
-            <td>
                 @Html.DisplayFor(modelItem => item.RequestId)
             </td>
             <td>
                 @Html.DisplayFor(modelItem => item.Status)
             </td>
             <td>
-                @Html.DisplayFor(modelItem => item.Requestor)
+                @Html.DisplayFor(modelItem => item.NumberOfTestRuns)
             </td>
             <td>
                 @Html.DisplayFor(modelItem => item.Timestamp)
             </td>
             <td>
-                @Html.ActionLink("Details", "Details", new { id=item.Id }) |
+                @Html.DisplayFor(modelItem => item.RetryCount)
+            </td>
+            <td>
+                @Html.ActionLink("Details", "Details", new { requestId = item.RequestId })
             </td>
         </tr>
 }

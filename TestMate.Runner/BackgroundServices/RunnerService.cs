@@ -141,7 +141,7 @@ namespace TestMate.Runner.BackgroundServices
                     });
 
                     _logger.LogDebug("Starting New Thread - " + thread.ManagedThreadId);
-                    thread.Start();
+                    thread.Start();    
                 }
                 catch (Exception ex)
                 {
@@ -364,9 +364,6 @@ namespace TestMate.Runner.BackgroundServices
             return true;
         }
 
-
-
-
         public FilterDefinition<Device> buildDeviceSelectionFilter(Dictionary<string, string> deviceFilter){
             var builder = Builders<Device>.Filter;
             var filter = builder.Empty;
@@ -396,8 +393,6 @@ namespace TestMate.Runner.BackgroundServices
             }
             return filter;
         }
-
-
         public async Task updateTestRunStatus(TestRun testRun, TestRunStatus status)
         {
             var testRunFilter = Builders<TestRun>.Filter.Where(x => x.Id == testRun.Id);
@@ -425,5 +420,7 @@ namespace TestMate.Runner.BackgroundServices
              
             await _devicesCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = false });
         }
+
+
     }
 }

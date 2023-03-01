@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Logs\AppiumServerLogs\" />
     <Folder Include="Logs\NUnit_TestResults\" />
   </ItemGroup>
 

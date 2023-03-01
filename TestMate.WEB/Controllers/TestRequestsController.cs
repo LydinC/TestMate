@@ -1,12 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.DataTransferObjects.TestRequests;
+using TestMate.Common.Models.TestRequests;
 using TestMate.Common.Utils;
 using TestMate.WEB.Helpers;
-using TestMate.Common.Models.TestRequests;
-using Newtonsoft.Json;
-using System.IO.Compression;
-using SharpCompress.Common;
 
 namespace TestMate.WEB.Controllers
 {
@@ -23,18 +21,22 @@ namespace TestMate.WEB.Controllers
             _logger = logger;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            return View();
+            var response = await _client.GetAsync(_client.BaseAddress + "/");
+            APIResponse<IEnumerable<TestRequest>> result = await response.ReadContentAsync<APIResponse<IEnumerable<TestRequest>>>();
+
+            if (result.Success)
+            {
+                return View(result.Data);
+            }
+            else
+            {
+                TempData["Error"] = result.Message;
+                return View();
+            }
+            
         }
-
-        //[Route("TestRequests")]
-        //public async Task<IActionResult> TestRequests()
-        //{
-        //    var testRequests = await _client.GetAllTestRequests();
-        //    return View(testRequests);
-        //}
-
 
         [Route("TestRequests/Create")]
         public IActionResult Create()
@@ -58,9 +60,15 @@ namespace TestMate.WEB.Controllers
             try
             {
                 //TODO: check why providing {"abc": ["samsung"]} still deserializes??????
-                DesiredDeviceProperties desiredDeviceProperties = JsonConvert.DeserializeObject<DesiredDeviceProperties>(testRequestWebCreateDTO.DesiredDeviceProperties);
+                DesiredDeviceProperties? desiredDeviceProperties = JsonConvert.DeserializeObject<DesiredDeviceProperties>(testRequestWebCreateDTO.DesiredDeviceProperties);
                 if (desiredDeviceProperties == null) {
                     throw new Exception("Desired Device Properties cannot be null");
+                }
+
+                List<DesiredContextConfiguration>? desiredContextConfigurations = new List<DesiredContextConfiguration>();
+                if(testRequestWebCreateDTO.DesiredContextConfiguration != null)
+                {
+                    desiredContextConfigurations = JsonConvert.DeserializeObject<List<DesiredContextConfiguration>>(testRequestWebCreateDTO.DesiredContextConfiguration);
                 }
 
                 //try to find the SolutionExecutable file in the TestSolutionPath
@@ -76,12 +84,12 @@ namespace TestMate.WEB.Controllers
                     configuration: new TestRequestConfiguration(fileUploadResult.ApkPath,
                                                                 TestExecutablePath,
                                                                 desiredDeviceProperties,
-                                                                testRequestWebCreateDTO.DesiredContextConfiguration
+                                                                desiredContextConfigurations
                                                                 )
                     );
 
                 var response = await _client.PostAsJsonAsync<TestRequestCreateDTO>(_client.BaseAddress + "/Create", testRequestCreateDTO);
-                var result = await response.ReadContentAsync<APIResponse<TestRequestWebCreateResult>>();
+                var result = await response.ReadContentAsync<APIResponse<TestRequestCreateResultDTO>>();
                 if (result.Success)
                 {
                     TempData["Success"] = result.Message;
@@ -96,10 +104,37 @@ namespace TestMate.WEB.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
-                TempData["Error"] = "Something went wrong! Please try again";
+                TempData["Error"] = "Something went wrong! Please try again! \r\n" + ex.Message;
                 return View();
             }
-
         }
+
+
+        [Route("TestRequests/Details")]
+        public async Task<IActionResult> Details(Guid RequestId)
+        {
+            var requestUri = new Uri(_client.BaseAddress, $"TestRequests/Details?RequestId={RequestId}");
+            var response = await _client.GetAsync(requestUri);
+            APIResponse<TestRequest> result = await response.ReadContentAsync<APIResponse<TestRequest>>();
+
+            if (result.Success)
+            {
+                return View(result.Data);
+            }
+            else
+            {
+                TempData["Error"] = result.Message;
+                return View();
+            }
+        }
+
+
+        //[Route("TestRequests")]
+        //public async Task<IActionResult> TestRequests()
+        //{
+        //    var testRequests = await _client.GetAllTestRequests();
+        //    return View(testRequests);
+        //}
+
     }
 }

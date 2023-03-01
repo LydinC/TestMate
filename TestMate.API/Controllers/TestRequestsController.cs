@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using TestMate.API.Services;
+using TestMate.API.Services.Interfaces;
 using TestMate.Common.DataTransferObjects.TestRequests;
 
 namespace TestMate.API.Controllers;
@@ -19,10 +20,10 @@ public class TestRequestsController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet]
-    public async Task<IActionResult> Get()
+    [HttpGet("All")]
+    public async Task<IActionResult> GetAll()
     {
-        var result = await _testRequestsService.GetTestRequests();
+        var result = await _testRequestsService.GetAllTestRequests();
         
         if (result.Success)
         {
@@ -35,10 +36,27 @@ public class TestRequestsController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet("Details")]
-    public async Task<IActionResult> GetDetails(Guid Id)
+    [HttpGet]
+    public async Task<IActionResult> Get()
     {
-        var result = await _testRequestsService.GetDetails(Id);
+        string username = User.FindFirst(JwtRegisteredClaimNames.Name).Value ?? throw new ArgumentNullException();
+        var result = await _testRequestsService.GetTestRequests(username);
+
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        else
+        {
+            return BadRequest(result);
+        }
+    }
+
+    [Authorize]
+    [HttpGet("Details")]
+    public async Task<IActionResult> Details(Guid RequestId)
+    {
+        var result = await _testRequestsService.GetDetails(RequestId);
 
         if (result.Success)
         {
@@ -52,9 +70,9 @@ public class TestRequestsController : ControllerBase
 
     [Authorize]
     [HttpGet("{id}/Status")]
-    public async Task<IActionResult> Status(Guid Id)
+    public async Task<IActionResult> Status(Guid RequestId)
     {
-        var result = await _testRequestsService.GetStatus(Id);
+        var result = await _testRequestsService.GetStatus(RequestId);
 
         if (result.Success)
         {

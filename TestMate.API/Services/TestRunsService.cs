@@ -37,11 +37,11 @@ namespace TestMate.API.Services
             }
         }
 
-        public async Task<APIResponse<IEnumerable<TestRun>>> GetTestRunsByTestRequestID(string testRequestId)
+        public async Task<APIResponse<IEnumerable<TestRun>>> GetTestRunsByTestRequestID(Guid testRequestId)
         {
             try
             {
-                List<TestRun> testRuns = await _testRunsCollection.Find(x => x.TestRequestID.ToString() == testRequestId).ToListAsync();
+                List<TestRun> testRuns = await _testRunsCollection.Find(x => x.TestRequestID == testRequestId).ToListAsync();
                 return new APIResponse<IEnumerable<TestRun>>(testRuns);
             }
             catch (Exception ex)

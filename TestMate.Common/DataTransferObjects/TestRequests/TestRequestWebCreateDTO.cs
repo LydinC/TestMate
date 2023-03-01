@@ -19,6 +19,6 @@ namespace TestMate.Common.DataTransferObjects.TestRequests
         [Required(ErrorMessage = "Desired Device Properties are required")]
         public string DesiredDeviceProperties { get; set; } = null!;
 
-        public List<DesiredContextConfiguration>? DesiredContextConfiguration { get; set; }
+        public string? DesiredContextConfiguration { get; set; }
     }
 }

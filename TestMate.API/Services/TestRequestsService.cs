@@ -10,6 +10,7 @@ using TestMate.Common.DataTransferObjects.TestRequests;
 using TestMate.Common.Enums;
 using TestMate.Common.Models.TestRequests;
 using TestMate.Common.Models.TestRuns;
+using TestMate.Common.Models.Users;
 
 namespace TestMate.API.Services
 {
@@ -30,7 +31,7 @@ namespace TestMate.API.Services
             _logger = logger;
         }
 
-        public async Task<APIResponse<IEnumerable<TestRequest>>> GetTestRequests()
+        public async Task<APIResponse<IEnumerable<TestRequest>>> GetAllTestRequests()
         {
             try
             {
@@ -43,14 +44,30 @@ namespace TestMate.API.Services
             }
         }
 
-        public async Task<APIResponse<TestRequest>> GetDetails(Guid id)
+
+        public async Task<APIResponse<IEnumerable<TestRequest>>> GetTestRequests(string username)
         {
             try
             {
-                var testRequest = await _testRequestsCollection.Find(x => x.RequestId == id).FirstOrDefaultAsync();
+                var testRequests = await _testRequestsCollection.Find(x => x.Requestor == username ).ToListAsync();
+                return new APIResponse<IEnumerable<TestRequest>>(testRequests);
+            }
+            catch (Exception ex)
+            {
+                return new APIResponse<IEnumerable<TestRequest>>(Status.Error, ex.Message);
+            }
+        }
+
+
+        public async Task<APIResponse<TestRequest>> GetDetails(Guid RequestId)
+        {
+            try
+            {
+                var testRequest = await _testRequestsCollection.Find(x => x.RequestId == RequestId).FirstOrDefaultAsync();
                 if (testRequest == null) {
-                    return new APIResponse<TestRequest>(Status.Error, $"Test Request with RequestId {id} does not exist");
+                    return new APIResponse<TestRequest>(Status.Error, $"Test Request with RequestId {RequestId} does not exist");
                 }
+
                 return new APIResponse<TestRequest>(testRequest);
             }
             catch (Exception ex)
@@ -60,14 +77,14 @@ namespace TestMate.API.Services
         }
 
 
-        public async Task<APIResponse<TestRequestStatus>> GetStatus(Guid id)
+        public async Task<APIResponse<TestRequestStatus>> GetStatus(Guid RequestId)
         {
             try
             {
-                var testRequest = await _testRequestsCollection.Find(x => x.RequestId == id).FirstOrDefaultAsync();
+                var testRequest = await _testRequestsCollection.Find(x => x.RequestId == RequestId).FirstOrDefaultAsync();
                 if (testRequest == null)
                 {
-                    return new APIResponse<TestRequestStatus>(Status.Error, $"Could not get Status of Test Request with RequestId {id} as it does not exist");
+                    return new APIResponse<TestRequestStatus>(Status.Error, $"Could not get Status of Test Request with RequestId {RequestId} as it does not exist");
                 }
                 return new APIResponse<TestRequestStatus>(testRequest.Status);
             }
@@ -93,6 +110,7 @@ namespace TestMate.API.Services
                 //Produce neccessary test run entities
                 List<TestRun> testRuns = GenerateTestRunEntities(testRequest);
                 _logger.LogInformation($"TestRequest {testRequest.RequestId} resolved in {testRuns.Count} Test Runs");
+                testRequest.NumberOfTestRuns = testRuns.Count;
 
                 if (testRuns.Count > 0)
                 {
@@ -104,7 +122,7 @@ namespace TestMate.API.Services
                     return new APIResponse<TestRequestCreateResultDTO>(Status.Error, "Failed to add Test Request as test run count is 0.");
                 }
 
-                return new APIResponse<TestRequestCreateResultDTO>(new TestRequestCreateResultDTO { Id = testRequest.Id });
+                return new APIResponse<TestRequestCreateResultDTO>(Status.Ok, $"Succesfully submitted TestRequest {testRequest.RequestId} which resolved in {testRuns.Count} Test Runs", new TestRequestCreateResultDTO { RequestId = testRequest.RequestId });
             }
             catch (Exception ex)
             {
