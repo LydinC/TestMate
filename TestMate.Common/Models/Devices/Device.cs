@@ -61,6 +61,32 @@ namespace TestMate.Common.Models.Devices
             return output.Equals("");
         }
 
+        public bool SetAutoRotateMode(bool enable)
+        {
+            string setStatus = enable ? "enable" : "disable";
+            string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put system accelerometer_rotation {enable}";
+            string output = ConnectivityUtil.ExecuteADBCommand(command);
+            return output.Equals("");
+        }
+
+        public bool SetLocation(bool enable)
+        {
+            string setStatus = enable ? "3" : "0";
+            string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put secure location_mode {enable}";
+            string output = ConnectivityUtil.ExecuteADBCommand(command);
+            return output.Equals("");
+        }
+
+        public bool SetOrientation(DeviceScreenOrientation orientation)
+        {
+            if(!SetAutoRotateMode(enable: false)) return false; 
+
+            string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put system user_rotation {orientation}";
+            string output = ConnectivityUtil.ExecuteADBCommand(command);
+            return output.Equals("");
+        }
+
+
 
     }
 }
