@@ -51,8 +51,7 @@ namespace TestMate.Common.Models.TestRequests
         public List<DeviceScreenOrientation>? Orientation { get; set; }
         //user_rotation: actual rotation, clockwise, 0 0°, 1 90°, 2 180°, 3 270°
 
-
-
+        public List<bool>? LocationOn { get; set; }
 
         public List<int>? MediaVolume { get; set; }
         //adb shell media volume --set 15 --show //0-15
@@ -69,7 +68,7 @@ namespace TestMate.Common.Models.TestRequests
         //public bool BatteryPowerSavingOn { get; set; }
         //public bool AutoRotateOn { get; set; }
         //adb shell settings put system accelerometer_rotation 0
-        //public bool LocationOn { get; set; }
+        //
         //public bool DoNotDisturbOn { get; set; }
 
     }

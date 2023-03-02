@@ -232,6 +232,7 @@ namespace TestMate.Runner.BackgroundServices
 
                 if (device != null)
                 {
+                   
                     string workingFolder = TestResultsWorkingPath + testRun.TestRequestID.ToString() + "\\" + testRun.Id;
                     AppiumLocalService appiumService = new AppiumServiceBuilder()
                         .WithIPAddress("127.0.0.1")
