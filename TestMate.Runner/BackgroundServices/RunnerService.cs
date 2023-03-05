@@ -5,6 +5,7 @@ using Newtonsoft.Json.Linq;
 using OpenQA.Selenium.Appium.Service;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text;
@@ -232,18 +233,25 @@ namespace TestMate.Runner.BackgroundServices
 
                 if (device != null)
                 {
-                   
-                    string workingFolder = TestResultsWorkingPath + testRun.TestRequestID.ToString() + "\\" + testRun.Id;
-                    AppiumLocalService appiumService = new AppiumServiceBuilder()
-                        .WithIPAddress("127.0.0.1")
-                        .UsingAnyFreePort()
-                        .WithLogFile(new FileInfo(Path.Combine(workingFolder, "AppiumServerLog.txt")))
-                        .Build();
-
+                    AppiumLocalService appiumService = null;
                     try
                     {
                         await updateDeviceStatus(device, DeviceStatus.Running);
                         await updateTestRunStatus(testRun, TestRunStatus.Processing);
+
+                        string workingFolder = TestResultsWorkingPath + testRun.TestRequestID.ToString() + "\\" + testRun.Id;
+
+                        appiumService = new AppiumServiceBuilder()
+                        .WithIPAddress("127.0.0.1")
+                        .UsingAnyFreePort()
+                        //.WithTimeOut(TimeSpan.FromMinutes(5))
+                        .WithLogFile(new FileInfo(Path.Combine(workingFolder, "AppiumServerLog.txt")))
+                        .Build();
+
+                        if (!SetDeviceContextConfigurations(device, testRun.ContextConfiguration))
+                        {
+                            throw new Exception($"Could not set Device Context Configuration {testRun.ContextConfiguration}");
+                        } ;
 
                         string udid = $"{device.IP}:{device.TcpIpPort}";
                         string app = $@"{testRun.ApkPath}";
@@ -319,7 +327,10 @@ namespace TestMate.Runner.BackgroundServices
                     finally
                     {
                         await updateDeviceStatus(device, DeviceStatus.Connected);
-                        appiumService.Dispose();
+                        if (appiumService != null)
+                        {
+                            appiumService.Dispose();
+                        }
 
                     }
                     return true;
@@ -337,6 +348,58 @@ namespace TestMate.Runner.BackgroundServices
             }
         }
 
+        public bool SetDeviceContextConfigurations(Device device, Dictionary<string,string>? configuration) {
+
+            bool result = true;
+            if(configuration != null)
+            {
+                foreach (var config in configuration)
+                {
+                    if (config.Value != null)
+                    {
+                        _logger.LogInformation($"Setting {config.Key} of {device.SerialNumber} to {config.Value}");
+                        switch (config.Key)
+                        {
+                            case "Bluetooth":
+                                result = device.SetBluetooth(Boolean.Parse(config.Value));
+                                break;
+                            case "AirplaneMode":
+                                result = device.SetAirplaneMode(Boolean.Parse(config.Value));
+                                break;
+                            case "Brightness":
+                                result = device.SetBrightness(Boolean.Parse(config.Value));
+                                break;
+                            case "AutoRotate":
+                                result = device.SetAutoRotateMode(Boolean.Parse(config.Value));
+                                break;
+                            case "Orientation":
+                                result = device.SetOrientation(int.Parse(config.Value));
+                                break;
+                            case "Location":
+                                result = device.SetLocation(Boolean.Parse(config.Value));
+                                break;
+                            case "Volume":
+                                result = device.SetVolume(Boolean.Parse(config.Value));
+                                break;
+                            case "Flashlight":
+                                throw new NotImplementedException("Flashlight");
+                            default:
+                                throw new Exception("Unknown Device Context Configuration property: " + config.Key);
+                        }
+                    }
+                    if (result != true)
+                    {
+                        _logger.LogInformation($"Failed to set {config.Key} of {device.SerialNumber} to {config.Value}");
+                        return result;
+                    }
+                    else 
+                    {
+                        _logger.LogInformation($"Successfully set {config.Key} of {device.SerialNumber} to {config.Value}");
+                    }
+                }
+            }
+            return result;
+        }
 
         public static bool ValidateDeviceProperties(DeviceProperties deviceProperties, string deviceFilterJson)
         {

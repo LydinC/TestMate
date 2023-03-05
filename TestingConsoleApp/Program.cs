@@ -4,60 +4,43 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 public static class Program
 {
- static IEnumerable<Dictionary<string, string>> CartesianProduct(Dictionary<string, List<string>> data)
+    public static List<Dictionary<string, object>> GeneratePermutations(Dictionary<string, object[]> input)
     {
-        string[] keys = data.Keys.ToArray();
-        string[][] values = data.Values.Select(list => list.ToArray()).ToArray();
+        var keys = input.Keys.ToArray();
+        var values = input.Values.Select(v => v.ToArray()).ToList();
+        var permutations = new List<Dictionary<string, object>>();
+        GeneratePermutationsHelper(keys, values, new Dictionary<string, object>(), permutations);
+        return permutations;
+    }
 
-        // Initialise an array of indices to keep track of the current index of each list of values.
-        int[] indices = new int[keys.Length];
-
-        for (var currentIndex = keys.Length - 1; currentIndex >= 0; currentIndex--)
+    private static void GeneratePermutationsHelper(string[] keys, List<object[]> values, Dictionary<string, object> current, List<Dictionary<string, object>> permutations)
+    {
+        if (current.Count == keys.Length)
         {
-            while (indices[currentIndex] < values[currentIndex].Length)
-            {
-                var combination = new Dictionary<string, string>();
-
-                // Loop through the keys and add the corresponding value at the current index to the dictionary.
-                for (var keyIndex = 0; keyIndex < keys.Length; keyIndex++)
-                {
-                    combination[keys[keyIndex]] = values[keyIndex][indices[keyIndex]];
-                }
-                yield return combination;
-
-                indices[currentIndex]++;
-            }
-            indices[currentIndex] = 0;
+            permutations.Add(new Dictionary<string, object>(current));
+            return;
+        }
+        var index = current.Count;
+        var key = keys[index];
+        foreach (var value in values[index])
+        {
+            current[key] = value;
+            GeneratePermutationsHelper(keys, values, current, permutations);
+            current.Remove(key);
         }
     }
 
     static void Main(string[] args)
     {
-        var mappings = new[]
-        {
-        new Dictionary<string, List<string>> {
-            { "Orientation", new List<string> { "Portrait", "Landscape" } },
-            { "Brightness", new List<string> { "Low", "High" } }
-        },
-        new Dictionary<string, List<string>> {
-            { "Flashlight", new List<string> { "On"} }
-        },
-        new Dictionary<string, List<string>> {
-            { "Speed", new List<string> { "On", "Off"} }
-        }
+        var input = new Dictionary<string, object[]> {
+            {"Bluetooth", new object[] {true, false}},
+            {"Orientation", new object[] {"3", "4", "5"}}
         };
+        var permutations = GeneratePermutations(input);
+        Console.WriteLine(permutations.ToString());
 
-        if (mappings.Length > 0) {
-            var fullCombinations = new List<Dictionary<string, string>>();
-            foreach (var mapping in mappings)
-            {
-                var combinations = CartesianProduct(mapping);
-                fullCombinations.AddRange(combinations);
-            }
-        }
+        Console.WriteLine(permutations.ToString());
 
-       
-
+        Console.WriteLine(permutations.ToString());
     }
-
 }

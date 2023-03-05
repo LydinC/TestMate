@@ -63,27 +63,40 @@ namespace TestMate.Common.Models.Devices
 
         public bool SetAutoRotateMode(bool enable)
         {
-            string setStatus = enable ? "enable" : "disable";
-            string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put system accelerometer_rotation {enable}";
+            string setStatus = enable ? "0" : "1";
+            string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put system accelerometer_rotation {setStatus}";
             string output = ConnectivityUtil.ExecuteADBCommand(command);
             return output.Equals("");
         }
 
         public bool SetLocation(bool enable)
         {
-            string setStatus = enable ? "3" : "0";
-            string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put secure location_mode {enable}";
+            string setStatus = enable ? LocationMode.On.ToString() : LocationMode.Off.ToString();
+            string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put secure location_mode {setStatus}";
             string output = ConnectivityUtil.ExecuteADBCommand(command);
             return output.Equals("");
         }
 
-        public bool SetOrientation(DeviceScreenOrientation orientation)
+        public bool SetOrientation(int orientation)
         {
             if(!SetAutoRotateMode(enable: false)) return false; 
 
             string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put system user_rotation {orientation}";
             string output = ConnectivityUtil.ExecuteADBCommand(command);
             return output.Equals("");
+        }
+
+        public bool SetVolume(bool max)
+        {
+            string keycode = max ? "KEYCODE_VOLUME_UP" : "KEYCODE_VOLUME_DOWN";
+
+            string command = $"-s {this.IP}:{this.TcpIpPort} shell input keyevent {keycode}";
+            for(int i =0; i < 20; i++)
+            {
+                string output = ConnectivityUtil.ExecuteADBCommand(command);
+                if(output != "") { return false; }
+            }
+            return true;
         }
 
 

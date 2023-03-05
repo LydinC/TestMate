@@ -1,7 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using TestMate.API.Settings;
@@ -10,7 +9,6 @@ using TestMate.Common.DataTransferObjects.TestRequests;
 using TestMate.Common.Enums;
 using TestMate.Common.Models.TestRequests;
 using TestMate.Common.Models.TestRuns;
-using TestMate.Common.Models.Users;
 
 namespace TestMate.API.Services
 {
@@ -147,9 +145,9 @@ namespace TestMate.API.Services
         public List<TestRun> GenerateTestRunEntities(TestRequest testRequest)
         {
             List<TestRun> testRuns = new List<TestRun>();
-
+            
             var desiredDeviceProperties = DeserializeDesiredDeviceProperties(testRequest.Configuration.DesiredDeviceProperties);
-
+            
             if (desiredDeviceProperties != null)
             {
                 List<Dictionary<string, string>> deviceFilters = GetDeviceFilterPermutations(desiredDeviceProperties);
@@ -242,7 +240,38 @@ namespace TestMate.API.Services
             return allPermutations;
         }
 
+
         public static IEnumerable<Dictionary<string, string>> GenerateCartesianProduct(Dictionary<string, List<object>> input)
+        {
+            string[] keys = input.Keys.ToArray();
+            var values = input.Values.Select(list => list.ToArray()).ToArray();
+
+            // Initialise an array of indices to keep track of the current index of each list of values.
+            int[] indices = Enumerable.Repeat(-1, keys.Length).ToArray();
+
+            for (var currentIndex = keys.Length - 1; currentIndex >= 0; currentIndex--)
+            {
+                while (indices[currentIndex] < values[currentIndex].Length - 1)
+                {
+                    var combination = new Dictionary<string, string>();
+
+                    // Loop through the keys and add the corresponding value at the current index to the dictionary.
+                    for (var keyIndex = 0; keyIndex < keys.Length; keyIndex++)
+                    {
+                        combination[keys[keyIndex]] = values[keyIndex][indices[keyIndex] + 1].ToString();
+                    }
+
+                    yield return combination;
+
+                    indices[currentIndex]++;
+                }
+
+                indices[currentIndex] = -1;
+            }
+        }
+
+
+        public static IEnumerable<Dictionary<string, string>> BACKUP_GenerateCartesianProduct(Dictionary<string, List<object>> input)
         {
             string[] keys = input.Keys.ToArray();
             var values = input.Values.Select(list => list.ToArray()).ToArray();

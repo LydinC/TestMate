@@ -59,8 +59,9 @@ namespace TestMate.WEB.Controllers
 
             try
             {
+                JsonSerializerSettings jsonSettings = new JsonSerializerSettings { MissingMemberHandling = MissingMemberHandling.Error };
                 //TODO: check why providing {"abc": ["samsung"]} still deserializes??????
-                DesiredDeviceProperties? desiredDeviceProperties = JsonConvert.DeserializeObject<DesiredDeviceProperties>(testRequestWebCreateDTO.DesiredDeviceProperties);
+                DesiredDeviceProperties? desiredDeviceProperties = JsonConvert.DeserializeObject<DesiredDeviceProperties>(testRequestWebCreateDTO.DesiredDeviceProperties, jsonSettings);
                 if (desiredDeviceProperties == null) {
                     throw new Exception("Desired Device Properties cannot be null");
                 }
@@ -68,7 +69,7 @@ namespace TestMate.WEB.Controllers
                 List<DesiredContextConfiguration>? desiredContextConfigurations = new List<DesiredContextConfiguration>();
                 if(testRequestWebCreateDTO.DesiredContextConfiguration != null)
                 {
-                    desiredContextConfigurations = JsonConvert.DeserializeObject<List<DesiredContextConfiguration>>(testRequestWebCreateDTO.DesiredContextConfiguration);
+                    desiredContextConfigurations = JsonConvert.DeserializeObject<List<DesiredContextConfiguration>>(testRequestWebCreateDTO.DesiredContextConfiguration, jsonSettings);
                 }
 
                 //try to find the SolutionExecutable file in the TestSolutionPath
