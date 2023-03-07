@@ -2,6 +2,6 @@
 {
     public class TestRequestCreateResultDTO
     {
-        public string Id { get; set; }
+        public Guid? RequestId { get; set; }
     }
 }

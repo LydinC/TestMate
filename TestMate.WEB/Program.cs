@@ -18,6 +18,9 @@ builder.Services.AddHttpClient<DevelopersController>("DevelopersClient",
 builder.Services.AddHttpClient<TestRequestsController>("TestRequestsClient",
     client => client.BaseAddress = new Uri(configuration["APIBaseUrl"] + "TestRequests"))
     .AddHttpMessageHandler<TokenHandler>();
+builder.Services.AddHttpClient<TestRequestsController>("TestRunsClient",
+    client => client.BaseAddress = new Uri(configuration["APIBaseUrl"] + "TestRuns"))
+    .AddHttpMessageHandler<TokenHandler>();
 
 //builder.Services.AddHttpClient<AuthenticationHelper>("AuthenticationClient",
 //    client => client.BaseAddress = new Uri(configuration["APIBaseUrl"] + "Authenticate"))

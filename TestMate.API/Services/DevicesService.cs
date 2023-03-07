@@ -4,6 +4,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Diagnostics;
 using System.Net;
+using System.Text.RegularExpressions;
 using TestMate.API.Settings;
 using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.DataTransferObjects.Developers;
@@ -45,8 +46,8 @@ public class DevicesService
         try
         {
             var device = await _devicesCollection.Find(d => d.IP == ip).FirstOrDefaultAsync();
-            
-            if (device == null) 
+
+            if (device == null)
             {
                 return new APIResponse<DeviceStatus>(Status.Error, "Unable to get device with IP: " + ip);
             }
@@ -60,7 +61,7 @@ public class DevicesService
     }
 
 
-    
+
     public async Task<APIResponse<Device>> GetDeviceBySerialNumber(string SerialNumber)
     {
         try
@@ -96,10 +97,10 @@ public class DevicesService
         try
         {
             List<string> adbDevices = ConnectivityUtil.GetADBDevices();
-            if(adbDevices == null || adbDevices.Count == 0)
+            if (adbDevices == null || adbDevices.Count == 0)
             {
                 return new APIResponse<Device>(Status.Error, "ADB does not indicate any connected devices!");
-            } 
+            }
             else
             {
                 //Check if Device with same IP Exists in Database
@@ -114,37 +115,37 @@ public class DevicesService
                     {
                         if (deviceInDbWithSameIP != null)
                         {
-                            if(deviceInDbWithSameIP.SerialNumber != serial)
+                            if (deviceInDbWithSameIP.SerialNumber != serial)
                             {
                                 //TODO: Should i delete the MongoDB Document and update it with the new details?
-                            } 
+                            }
                             else
                             {
-                                //Make sure the Status is connected in MongoDB for the deviceInDbWithSameIP
+                                //TODO: Make sure the Status is connected in MongoDB for the deviceInDbWithSameIP
                                 //Update Properties too?
                             }
                         }
                     }
-                    else 
+                    else
                     {
-                        return new APIResponse<Device>(Status.Error, "Could not retrieve serial number for device with IP: " +deviceDTO.IP);
+                        return new APIResponse<Device>(Status.Error, "Could not retrieve serial number for device with IP: " + deviceDTO.IP);
                     }
 
                     //TODO: Make sure that device in DB is correct (same Ip + same Serial + Status is connected?)
                     return new APIResponse<Device>(Status.Ok, "Device with IP " + deviceDTO.IP + " is already connected!");
-                } 
+                }
                 else
                 {
                     port = ConnectivityUtil.GetAvailableTcpIpPort();
 
-                    //TODO: check if there are other stable means how we can retrieve the serial number of the device
-                    string serialNumber = adbDevices.FirstOrDefault(x => !x.StartsWith("192"));
+                    string? serialNumber = adbDevices.FirstOrDefault(x => !Regex.IsMatch(x, @"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"));
                     if (serialNumber == null)
                     {
                         return new APIResponse<Device>(Status.Error, "Could not retrieve ADB Serial Number for device with IP " + deviceDTO.IP + ". Make sure you connect using USB the first time.");
                     }
 
-                    if (!ConnectivityUtil.ValidateSerialNumberAndIP(serialNumber, deviceDTO.IP)) {
+                    if (!ConnectivityUtil.ValidateSerialNumberAndIP(serialNumber, deviceDTO.IP))
+                    {
                         return new APIResponse<Device>(Status.Error, "The Serial Number " + serialNumber + " does not own requested IP " + deviceDTO.IP + ".");
                     }
 
@@ -179,14 +180,10 @@ public class DevicesService
                     }
                 }
             }
-
-
-            
-            
         }
         catch (Exception ex)
         {
-            
+
             return new APIResponse<Device>(Status.Error, ex.Message);
         }
     }
@@ -205,7 +202,7 @@ public class DevicesService
         catch (Exception ex)
         {
             return new APIResponse<Device>(Status.Error, ex.Message);
-        }   
+        }
     }
 
     //Removes devices (by SerialNumber)

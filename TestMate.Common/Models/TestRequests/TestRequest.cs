@@ -20,13 +20,17 @@ namespace TestMate.Common.Models.TestRequests
         [BsonRequired]
         public TestRequestStatus Status { get; set; }
 
-        [Required(ErrorMessage = "Requestor field is required")]
         [BsonRequired]
+        [Required(ErrorMessage = "Requestor field is required")]
         public string Requestor { get; set; }
 
         [Required]
         [BsonRequired]
         public DateTime Timestamp { get; set; }
+
+        [Required]
+        [BsonRequired]
+        public int NumberOfTestRuns{ get; set; }
 
         [Required]
         [BsonRequired]

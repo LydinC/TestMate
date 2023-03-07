@@ -17,6 +17,9 @@ namespace TestMate.Common.Utils
 {
     public class ConnectivityUtil
     {
+
+        public static string adbPath = "C:\\Users\\lydin.camilleri\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe";
+
         public static bool IsIpReachable(string ip, int timeoutInMs)
         {
             var options = new PingOptions
@@ -42,10 +45,10 @@ namespace TestMate.Common.Utils
         public static bool TryADBConnect(string serialNumber, string ip, int port) {
             try
             {
-                string adbTcpipCommand = $"adb -s {serialNumber} tcpip {port}";
+                string adbTcpipCommand = $"-s {serialNumber} tcpip {port}";
                 string tcpipOutput = ExecuteADBCommand(adbTcpipCommand);
 
-                string adbConnectCommand = $"adb connect {ip}:{port}";
+                string adbConnectCommand = $"connect {ip}:{port}";
                 string connectOutput = ExecuteADBCommand(adbConnectCommand);
 
                 if (connectOutput.Contains($"connected to {ip}:{port}"))
@@ -69,7 +72,7 @@ namespace TestMate.Common.Utils
         {
             try
             {
-                string adbConnectCommand = $"adb connect {ip}:{port}";
+                string adbConnectCommand = $"connect {ip}:{port}";
                 string connectOutput = ExecuteADBCommand(adbConnectCommand);
 
                 if (connectOutput.Contains($"connected to {ip}:{port}"))
@@ -92,7 +95,7 @@ namespace TestMate.Common.Utils
         {
             try
             {
-                string adbCommand = $"adb disconnect {ip}:{port}";
+                string adbCommand = $"disconnect {ip}:{port}";
                 string output = ExecuteADBCommand(adbCommand);
 
                 if (output.Contains($"disconected {ip}:{port}"))
@@ -111,20 +114,19 @@ namespace TestMate.Common.Utils
             }
         }
 
-
         public static List<string> GetADBDevices()
         {
             List<string> deviceSerials = new List<string>();
          
             try
             {
-                string adbCommand = "adb devices";
+                string adbCommand = "devices";
                 string output = ExecuteADBCommand(adbCommand);
-                
-                var serialRegexPattern = new Regex("^([a-zA-Z0-9\\-]+)(\\s+)(device)");
-                var ipRegexPattern = new Regex(@"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\:(\d{1,5})\s+device");
-                var lines = output.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var line in lines)
+
+                Regex serialRegexPattern = new Regex("^([a-zA-Z0-9\\-]+)(\\s+)(device)");
+                Regex ipRegexPattern = new Regex(@"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\:(\d{1,5})\s+device");
+                string[] lines = output.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string line in lines)
                 {
                     if (serialRegexPattern.IsMatch(line))
                     {
@@ -140,6 +142,7 @@ namespace TestMate.Common.Utils
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
+                throw;
             }
             return deviceSerials;
         }
@@ -156,29 +159,30 @@ namespace TestMate.Common.Utils
                 "gsm.operator.alpha",
                 "ro.product.cpu.abi",
                 "persist.sys.timezone",
-                //wm size is embedded in command
+                //additional properties are included in adb command (ex: wm size & battery)
             };
 
             string propertiesList = string.Join("|", properties);
 
-            string adbCcommand = $"adb -s {ip}:{port} shell 'getprop && wm size && dumpsys battery' | Select-String -Pattern '{propertiesList}|Physical size|level|scale|AC powered|USB powered|Wireless powered'";
+            string adbCcommand = $"-s {ip}:{port} shell 'getprop && wm size && dumpsys battery' | Select-String -Pattern '{propertiesList}|Physical size|level|scale|AC powered|USB powered|Wireless powered'";
             var output = ExecuteADBCommand(adbCcommand);
             
             output = output.Replace("[", "").Replace("]", "");
             
             return MapDeviceProperties(output);
         }
+
         private static DeviceProperties MapDeviceProperties(string adbOutput)
         {
-            var properties = adbOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[] properties = adbOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
             DeviceProperties deviceProperties = new DeviceProperties();
-            BatteryInfo batteryInfo = new BatteryInfo();
-            deviceProperties.Battery = batteryInfo;
+            Battery battery = new Battery();
+            deviceProperties.Battery = battery;
             
-            foreach (var property in properties)
+            foreach (string property in properties)
             {
-                var key = property.Split(':')[0].Trim();
-                var value = property.Split(':')[1].Trim();
+                string key = property.Split(':')[0].Trim();
+                string value = property.Split(':')[1].Trim();
                 switch (key)
                 {
                     case "ro.product.model":
@@ -215,19 +219,19 @@ namespace TestMate.Common.Utils
 
                     //Battery Related
                     case "level":
-                        batteryInfo.Level = int.Parse(value);
+                        battery.Level = int.Parse(value);
                         break;
                     case "scale":
-                        batteryInfo.Scale = int.Parse(value);
+                        battery.Scale = int.Parse(value);
                         break;
                     case "AC powered":
-                        batteryInfo.ACPowered = Boolean.Parse(value);
+                        battery.ACPowered = Boolean.Parse(value);
                         break;
                     case "USB powered":
-                        batteryInfo.USBPowered = Boolean.Parse(value);
+                        battery.USBPowered = Boolean.Parse(value);
                         break;
                     case "Wireless powered":
-                        batteryInfo.WirelessPowered = Boolean.Parse(value);
+                        battery.WirelessPowered = Boolean.Parse(value);
                         break;
 
                 }
@@ -238,7 +242,7 @@ namespace TestMate.Common.Utils
 
         public static bool ValidateSerialNumberAndIP(string serialNumber, string ip)
         {
-            string adbCommand = $"adb -s {serialNumber} shell ip -f inet addr show wlan0";
+            string adbCommand = $"-s {serialNumber} shell ip -f inet addr show wlan0";
 
             string output = ExecuteADBCommand(adbCommand);
 
@@ -272,7 +276,7 @@ namespace TestMate.Common.Utils
             }
 
         public static string GetSerialNumberByIp(string ip) {
-            string adbCcommand = $"adb -s {ip} shell getprop ro.serialno";
+            string adbCcommand = $"-s {ip} shell getprop ro.serialno";
             var output = ExecuteADBCommand(adbCcommand);
             return output;
         }
@@ -283,16 +287,23 @@ namespace TestMate.Common.Utils
             using (Process process = new Process())
             {
                 process.StartInfo.FileName = "powershell.exe";
-                process.StartInfo.Arguments = $"{command}";
+                process.StartInfo.Arguments = $"{adbPath} {command}";
                 process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError= true;
                 process.StartInfo.CreateNoWindow = true;
                 process.StartInfo.UseShellExecute = false;
                 process.Start();
                 process.WaitForExit(new TimeSpan(1000));
-                
+
                 output = process.StandardOutput.ReadToEnd().Trim();
+                
+                if(process.ExitCode != 0){
+                    string error = process.StandardError.ReadToEnd().Trim();
+                    File.AppendAllText(@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\IIS\TestMateAPI\Logs\TEST.txt", "Command: " + command + "; Output: " + output + "; Error: " + error);
+                    throw new Exception($"Error in Executing ADB Command: {error}");
+                }
             }
-            
+         
             return output;
         }
 
@@ -302,8 +313,8 @@ namespace TestMate.Common.Utils
         public static bool SetBrightnessLevel(Device device, int level) {
 
             //TODO: Consider making min and max
-            string adb_setBrightnessMode = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system screen_brightness_mode 0";
-            string adb_setBrightnessLevel = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system screen_brightness {level}";
+            string adb_setBrightnessMode = $"-s {device.IP}:{device.TcpIpPort} shell settings put system screen_brightness_mode 0";
+            string adb_setBrightnessLevel = $"-s {device.IP}:{device.TcpIpPort} shell settings put system screen_brightness {level}";
             ExecuteADBCommand(adb_setBrightnessMode);
             ExecuteADBCommand(adb_setBrightnessLevel);
             
@@ -315,11 +326,11 @@ namespace TestMate.Common.Utils
             string adbCommand = "";
             if (enable)
             {
-                adbCommand = $"adb -s {device.IP}:{device.TcpIpPort} shell am broadcast -a io.appium.settings.bluetooth --es setstatus enable";
+                adbCommand = $"-s {device.IP}:{device.TcpIpPort} shell am broadcast -a io.appium.settings.bluetooth --es setstatus enable";
             }
             else
             {
-                adbCommand = $"adb -s {device.IP}:{device.TcpIpPort} shell am broadcast -a io.appium.settings.bluetooth --es setstatus disable";
+                adbCommand = $"-s {device.IP}:{device.TcpIpPort} shell am broadcast -a io.appium.settings.bluetooth --es setstatus disable";
             }
             var output = ExecuteADBCommand(adbCommand);
 
@@ -331,11 +342,11 @@ namespace TestMate.Common.Utils
             string adbCommand = "";
             if (enable)
             {
-                adbCommand = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put global airplane_mode_on 1";
+                adbCommand = $"-s {device.IP}:{device.TcpIpPort} shell settings put global airplane_mode_on 1";
             }
             else
             {
-                adbCommand = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put global airplane_mode_on 0";
+                adbCommand = $"-s {device.IP}:{device.TcpIpPort} shell settings put global airplane_mode_on 0";
             }
             var output = ExecuteADBCommand(adbCommand);
 
@@ -345,9 +356,9 @@ namespace TestMate.Common.Utils
         public static bool SetOrientation(Device device, DeviceScreenOrientation screenOrientation)
         {
 
-            string adb_autoRotateOff = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system accelerometer_rotation 0";
-            string adb_setOrientation = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system user_rotation {screenOrientation}";
-            string adb_autoRotateOn = $"adb -s {device.IP}:{device.TcpIpPort} shell settings put system accelerometer_rotation 1";
+            string adb_autoRotateOff = $"-s {device.IP}:{device.TcpIpPort} shell settings put system accelerometer_rotation 0";
+            string adb_setOrientation = $"-s {device.IP}:{device.TcpIpPort} shell settings put system user_rotation {screenOrientation}";
+            string adb_autoRotateOn = $"-s {device.IP}:{device.TcpIpPort} shell settings put system accelerometer_rotation 1";
             
             ExecuteADBCommand(adb_autoRotateOff);
             ExecuteADBCommand(adb_setOrientation);

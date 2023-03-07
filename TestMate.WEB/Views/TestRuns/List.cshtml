@@ -1,0 +1,57 @@
+﻿@model IEnumerable<TestMate.Common.Models.TestRuns.TestRun>
+
+@{
+    ViewData["Title"] = "Test Runs";
+}
+
+<h1>Test Runs List</h1>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.Id)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.TestRequestID)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ApkPath)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.TestExecutablePath)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Status)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.RetryCount)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Id)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.TestRequestID)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.ApkPath)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.TestExecutablePath)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Status)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.RetryCount)
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

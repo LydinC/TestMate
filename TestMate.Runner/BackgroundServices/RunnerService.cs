@@ -1,16 +1,14 @@
-﻿using MongoDB.Bson;
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using OpenQA.Selenium.Appium.Service;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Diagnostics;
-using System.Reflection;
 using System.Text;
 using TestMate.Common.Enums;
 using TestMate.Common.Models.Devices;
 using TestMate.Common.Models.TestRequests;
+using TestMate.Common.Models.TestRuns;
 using TestMate.Common.Utils;
 
 namespace TestMate.Runner.BackgroundServices
@@ -29,13 +27,16 @@ namespace TestMate.Runner.BackgroundServices
         string testRunExchange = "TestRunExchange";
         string testRunQueue = "test-run-queue";
         string testRunRoutingKey = "testRunRoutingKey";
-      
+
+        string TestResultsWorkingPath = "C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\";
+        int TestRunRetryLimit = 3;
+        int TestRunRetryDelay = 300000; //5 minutes 
+
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration)
         {
             _devicesCollection = database.GetCollection<Device>("Devices");
             _testRequestsCollection = database.GetCollection<TestRequest>("TestRequests");
             _testRunsCollection = database.GetCollection<TestRun>("TestRuns");
-
             _logger = logger;
             _connection = connection;
             _channel = channel;
@@ -67,7 +68,7 @@ namespace TestMate.Runner.BackgroundServices
                 _logger.LogInformation("RabbitMQ - TestRunQueue binded with TestRunExchange");
 
                 //Setup Qos
-                _channel.BasicQos(prefetchSize: 0, prefetchCount: 10, global: false);
+                _channel.BasicQos(prefetchSize: 0, prefetchCount: 3, global: false);
 
                 _logger.LogInformation("Successfully set up RabbitMQ");
                 _logger.LogInformation("======= RunnerService Setup Complete =======");
@@ -83,61 +84,67 @@ namespace TestMate.Runner.BackgroundServices
             var consumer = new EventingBasicConsumer(_channel);
             consumer.Received += (model, ea) =>
             {
-                _logger.LogInformation("Consumer Received Message!");
-
-                // Get the message body
-                var body = ea.Body.ToArray();
-                var message = Encoding.UTF8.GetString(body);
-
-                _logger.LogInformation("Message received: " + message);
-                TestRun testRun = JsonConvert.DeserializeObject<TestRun>(message);
-
-
-                // Run the Appium tests in a separate thread
-                var thread = new Thread(async () =>
+                try
                 {
+                    _logger.LogInformation("Initiating Message Consumption Event");
 
-                    if (await ProcessTestRun(testRun, cancellationToken) == false)
+                    var body = ea.Body.ToArray();
+                    var message = Encoding.UTF8.GetString(body);
+                    _logger.LogInformation("Message Content: " + message);
+
+                    TestRun? testRun = JsonConvert.DeserializeObject<TestRun>(message);
+
+                    // Run the Appium tests in a separate thread
+                    var thread = new Thread(async () =>
                     {
-                        _logger.LogWarning("No available device found!");
-
-                        testRun.incrementRetryCount();
-                        await incrementTestRunRetryCount(testRun);
-
-                        if (testRun.RetryCount <= 3)
+                        if (await ProcessTestRun(testRun, cancellationToken) == false)
                         {
-                            //republish updated test run with a delay header
-                            var message = JsonConvert.SerializeObject(testRun);
-                            _logger.LogInformation($"Re-publishing message: {message} ");
-                            var properties = _channel.CreateBasicProperties();
-                            properties.Headers = new Dictionary<string, object>();
-                            properties.Headers.Add("x-delay", 300000); //5 minutes
-                            // Publish the message to the queue
-                            var body = Encoding.UTF8.GetBytes(message);
-                            _channel.BasicPublish(
-                                exchange: testRunExchange,
-                                routingKey: testRunRoutingKey,
-                                basicProperties: properties,
-                                body: body
-                                );
-                            _logger.LogInformation("Re-published successfully!");
-                        }
-                        else
-                        {
-                            _logger.LogError("Failing to serve test run after 3 attempts.");
-                            await updateTestRunStatus(testRun, TestRunStatus.FailedNoDevices);
-                        }
-                    }
+                            _logger.LogWarning($"No available device found to serve TestRun {testRun.Id}!");
 
-                    //Always acnowledge message. If request was not processed, another message was published with the respective delay
-                    _logger.LogInformation("Acknowledging Message");
-                    _channel.BasicAck(
-                        deliveryTag: ea.DeliveryTag,
-                        multiple: false);
-                });
+                            if (testRun.RetryCount < TestRunRetryLimit)
+                            {
+                                testRun.incrementRetryCount();
+                                await incrementTestRunRetryCount(testRun);
 
-                _logger.LogDebug("Starting New Thread - " + thread.ManagedThreadId);
-                thread.Start();
+                                //republish updated test run with a delay header
+                                string message = JsonConvert.SerializeObject(testRun);
+                                _logger.LogInformation($"Re-publishing message: {message} ");
+                                var properties = _channel.CreateBasicProperties();
+                                properties.Headers = new Dictionary<string, object>();
+                                properties.Headers.Add("x-delay", TestRunRetryDelay); 
+
+                                // Publish the message to the queue
+                                Byte[] body = Encoding.UTF8.GetBytes(message);
+                                _channel.BasicPublish(
+                                    exchange: testRunExchange,
+                                    routingKey: testRunRoutingKey,
+                                    basicProperties: properties,
+                                    body: body
+                                    );
+                                _logger.LogInformation("Re-published successfully!");
+                            }
+                            else
+                            {
+                                _logger.LogError($"Failing to serve test run after {TestRunRetryLimit} attempts.");
+                                await updateTestRunStatus(testRun, TestRunStatus.FailedNoDevices);
+                            }
+                        }
+
+                        //Always acnowledge message. If request was not processed, another message was published with the respective delay
+                        _logger.LogInformation("Acknowledging Message");
+                        _channel.BasicAck(
+                            deliveryTag: ea.DeliveryTag,
+                            multiple: false);
+                    });
+
+                    _logger.LogDebug("Starting New Thread - " + thread.ManagedThreadId);
+                    thread.Start();    
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing message!");
+                    _channel.BasicNack(deliveryTag: ea.DeliveryTag, multiple: false, requeue: false);
+                }
 
             };
 
@@ -151,7 +158,7 @@ namespace TestMate.Runner.BackgroundServices
             /* LISTENER FOR PUBLISHER */
             _logger.LogInformation("Setting up Listener on MongoDB using ChangeStream");
             var pipeline = new EmptyPipelineDefinition<ChangeStreamDocument<TestRun>>();
-            var options = new ChangeStreamOptions();
+            ChangeStreamOptions options = new ChangeStreamOptions();
             options.FullDocument = ChangeStreamFullDocumentOption.UpdateLookup;
             _logger.LogInformation("Successfully set up MongoDB ChangeStream");
 
@@ -167,11 +174,11 @@ namespace TestMate.Runner.BackgroundServices
                         {
                             // Publish the test request as a message to RabbitMQ Queue
                             var testRun = change.FullDocument;
-                            var message = JsonConvert.SerializeObject(testRun);
+                            string message = JsonConvert.SerializeObject(testRun);
                             _logger.LogInformation($"Publishing message: {message} to exchange '{testRunExchange}'");
 
                             // Publish the message to the queue
-                            var body = Encoding.UTF8.GetBytes(message);
+                            Byte[] body = Encoding.UTF8.GetBytes(message);
                             _channel.BasicPublish(
                                 exchange: testRunExchange,
                                 routingKey: testRunRoutingKey,
@@ -199,141 +206,60 @@ namespace TestMate.Runner.BackgroundServices
 
         private async Task<bool> ProcessTestRun(TestRun testRun, CancellationToken cancellationToken)
         {
-            _logger.LogDebug("Triggering process of servicing Test Run " + testRun.Id.ToString());
+            _logger.LogInformation($"Triggering process of servicing Test Run {testRun.Id}");
 
-            testRun.TestSolutionPath = "\"C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\Appium Tests\\AppiumTests\\bin\\Debug\\net7.0\\AppiumTests.dll\"";
-            testRun.ApplicationUnderTest = @"""C:\Users\lydin.camilleri\Desktop\Master's Code Repo\UPLOADS\44fb61fb-62ad-4a92-a562-d8d25fee21c1\Application Under Test\com.xlythe.calculator.material_93.apk""";
-            
-            var builder = Builders<Device>.Filter;
-            var filter = builder.Empty;
-            filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
-            foreach(var property in testRun.DeviceFilter)
-            {
-                string key = "DeviceProperties." + property.Key;
-                string value = property.Value;
-                if (property.Key == "AndroidVersion" || property.Key == "SdkVersion")
-                {
-                    filter &= Builders<Device>.Filter.Eq(key, int.Parse(value));
-                }
-                else if (property.Key == "ScreenResolution") 
-                {
-                    ScreenResolution screenResolution = JsonConvert.DeserializeObject<ScreenResolution>(value);
-                    filter &= Builders<Device>.Filter.Eq(key, screenResolution);
-                }
-                else if (property.Key == "Battery")
-                {
-                    BatteryInfo batteryInfo = JsonConvert.DeserializeObject<BatteryInfo>(value);
-                    filter &= Builders<Device>.Filter.Eq(key, batteryInfo);
-                }
-                else 
-                {
-                    filter &= Builders<Device>.Filter.Eq("DeviceProperties." + property.Key, property.Value);
-                }
-            }
-
-            //JObject desiredDeviceProperties = JObject.Parse(testRun.DesiredDeviceProperties);
-
-
-            /* CODE COMMENTED FOR GENERATING MONGO FILTER
-             * 
-             * var builder = Builders<Device>.Filter;
-            //var filter = builder.Empty;
-
-
-            //foreach (var property in desiredDeviceProperties)
-            //{
-            //    string key = property.Key.ToString();
-            //    var value = property.Value;
-
-            //    switch (value.Type)
-            //    {
-            //        case JTokenType.String:
-            //            string stringValue = value.ToString();
-            //            Regex operatorRegex = new Regex("^(<=|>=|<|>|=)\\s*\\d+(\\.\\d+)?$");
-
-            //            if (operatorRegex.IsMatch(stringValue)) {
-            //                string[] tokenizedOperator = stringValue.Split(" ");
-
-            //                switch (tokenizedOperator[0])
-            //                {
-            //                    case ">=":
-            //                        filter = filter & Builders<Device>.Filter.Eq(d => d.DeviceProperties., DeviceStatus.Connected);
-            //                        break;
-            //                    case ">":
-            //                        filter &= builder.AnyGt(d => d.DeviceProperties[key.ToString()], tokenizedOperator[1]);
-            //                        break;
-
-            //                    case "<=":
-            //                        filter = filter & builder.AnyLte(d => d.DeviceProperties[key], tokenizedOperator[1]);
-            //                        break;
-
-            //                    case "<":
-            //                        filter = filter & builder.AnyLt(d => d.DeviceProperties[key], tokenizedOperator[1]);
-            //                        break;
-
-            //                    case "=":
-            //                        filter = filter & builder.AnyEq(key, tokenizedOperator[1]);
-            //                        break;
-            //                }
-            //            } else 
-            //            {
-            //                filter = filter & builder.Eq(key, stringValue);
-
-            //            }
-
-            //            break;
-            //        case JTokenType.Array:
-            //            filter = filter & builder.In(key, value.ToObject<string[]>());
-            //            break;
-            //    }
-            //}
-            */
-
-            // Create a config class which holds:
-            // - Device selection parameters
-            // - Context selection parameters
-            // - Test run constrains (e.g. max devices, max contexts, max runtime)
-
+            FilterDefinition<Device> filter = buildDeviceSelectionFilter(testRun.DeviceFilter);
 
             Device? device = null;
-
-            var matchingDevices = _devicesCollection.Find(filter).ToList();
-
+            List<Device> matchingDevices = _devicesCollection.Find(filter).ToList();
             if (matchingDevices != null)
             {
-                foreach(Device matchingDevice in matchingDevices)
+                foreach (Device matchingDevice in matchingDevices)
                 {
-                    DeviceProperties actualDeviceProperties = ConnectivityUtil.GetDeviceProperties(matchingDevice.IP, matchingDevice.TcpIpPort);
-                    //TODO: Validate actualDeviceProperties against the required properties
-                    //for now assuming valid
-                    if(true){
+                    //Get current state of properties and update device properties in DB
+                    DeviceProperties properties = ConnectivityUtil.GetDeviceProperties(matchingDevice.IP, matchingDevice.TcpIpPort);
+                    await updateDeviceProperties(matchingDevice, properties);
+
+                    //Validate if the updated properties still match to confirm that filter is still satisfied
+                    if (ValidateDeviceProperties(properties, JsonConvert.SerializeObject(testRun.DeviceFilter))) {
                         device = matchingDevice;
-                        break;
+
+                        //ensure that device status is still as Connected
+                        if(await getDeviceStatus(matchingDevice) == DeviceStatus.Connected)
+                        {
+                            await updateDeviceStatus(device, DeviceStatus.Running);
+                            await updateTestRunStatus(testRun, TestRunStatus.Processing);
+                            break;
+                        }
                     }
                 };
 
                 if (device != null)
                 {
-                    string workingFolder = "C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\" + testRun.TestRequestID.ToString() + "\\" + testRun.Id;
-                    var appiumService = new AppiumServiceBuilder()
+                    AppiumLocalService appiumService = null;
+                    try
+                    {
+                        string workingFolder = TestResultsWorkingPath + testRun.TestRequestID.ToString() + "\\" + testRun.Id;
+
+                        appiumService = new AppiumServiceBuilder()
                         .WithIPAddress("127.0.0.1")
                         .UsingAnyFreePort()
+                        //.WithTimeOut(TimeSpan.FromMinutes(5))
                         .WithLogFile(new FileInfo(Path.Combine(workingFolder, "AppiumServerLog.txt")))
                         .Build();
 
-                  
-                    try
-                    {
-                        await updateDeviceStatus(device, DeviceStatus.Running);
-                        await updateTestRunStatus(testRun, TestRunStatus.Processing);
+                        if (!SetDeviceContextConfigurations(device, testRun.ContextConfiguration))
+                        {
+                            throw new Exception($"Could not set Device Context Configuration {JsonConvert.SerializeObject(testRun.ContextConfiguration)}");
+                        } ;
 
                         string udid = $"{device.IP}:{device.TcpIpPort}";
-                        string app = $"{testRun.ApplicationUnderTest}";
+                        string app = $@"{testRun.ApkPath}";
                         string nUnitConsolePath = @"C:\Program Files\NUnit.Console-3.16.2\bin\nunit3-console.exe";
                         string appiumServerUrl = $"{appiumService.ServiceUrl.AbsoluteUri}";
 
                         appiumService.Start();
-                        
+
                         /* RUNNING VIA NUNIT TESTPACKAGE TECHNIQUE 
                         // Initialize the test engine
                         ITestEngine engine = TestEngineActivator.CreateInstance();
@@ -352,13 +278,15 @@ namespace TestMate.Runner.BackgroundServices
                         TestResult testResult = remoteTestRunner.Run(listener: null, TestFilter.Empty, true, LoggingThreshold.All);
                         */
 
-                        string arguments = testRun.TestSolutionPath +
-                                            " --work=\"" + workingFolder + "\"" +
-                                            " --testparam:AppiumServerUrl=" + appiumServerUrl +
-                                            " --testparam:APP=" + app +
-                                            " --testparam:UDID=" + udid +
-                                            " --out=\"DllOutput.txt\" " +
-                                            " --result=\"NUnitResult.xml\"";
+                        string arguments =  $"\"{testRun.TestExecutablePath}\"" +
+                                            $" --work=\"{workingFolder}\"" +
+                                            $" --testparam:AppiumServerUrl=\"{appiumServerUrl}\"" +
+                                            $" --testparam:APP=\"" + app + "\"" +
+                                            $" --testparam:UDID=\"" + udid + "\"" +
+                                            $" --out=\"TestSolution_ConsoleOutput.txt\" " +
+                                            $" --result=\"NUnitResult.xml\"";
+
+                        File.WriteAllText(workingFolder + "\\NUnitConsole_Arguments.txt", arguments);
 
                         ProcessStartInfo startInfo = new ProcessStartInfo
                         {
@@ -368,7 +296,7 @@ namespace TestMate.Runner.BackgroundServices
                             RedirectStandardOutput = true,
                             RedirectStandardError = true,
                         };
-                        
+
                         using (Process process = Process.Start(startInfo))
                         {
                             string output = process.StandardOutput.ReadToEnd();
@@ -384,7 +312,7 @@ namespace TestMate.Runner.BackgroundServices
                             {
                                 await updateTestRunStatus(testRun, TestRunStatus.Completed);
                             }
-                            else 
+                            else
                             {
                                 await updateTestRunStatus(testRun, TestRunStatus.Failed);
                             }
@@ -399,28 +327,136 @@ namespace TestMate.Runner.BackgroundServices
                     finally
                     {
                         await updateDeviceStatus(device, DeviceStatus.Connected);
-                        appiumService.Dispose();
-                        
+                        if (appiumService != null)
+                        {
+                            appiumService.Dispose();
+                        }
+
                     }
                     return true;
                 }
-                else 
+                else
                 {
                     _logger.LogWarning($"Postponing consumption of Test Run {testRun.Id}");
                     return false;
                 }
-
             }
-            else 
+            else
             {
                 _logger.LogWarning($"Postponing consumption of Test Run {testRun.Id}");
                 return false;
             }
         }
 
+        public bool SetDeviceContextConfigurations(Device device, Dictionary<string,string>? configuration) {
 
+            bool result = true;
+            if(configuration != null)
+            {
+                foreach (var config in configuration)
+                {
+                    if (config.Value != null)
+                    {
+                        _logger.LogInformation($"Setting {config.Key} of {device.SerialNumber} to {config.Value}");
+                        switch (config.Key)
+                        {
+                            case "Bluetooth":
+                                result = device.SetBluetooth(Boolean.Parse(config.Value));
+                                break;
+                            case "AirplaneMode":
+                                result = device.SetAirplaneMode(Boolean.Parse(config.Value));
+                                break;
+                            case "Brightness":
+                                result = device.SetBrightness(Boolean.Parse(config.Value));
+                                break;
+                            case "AutoRotate":
+                                result = device.SetAutoRotateMode(Boolean.Parse(config.Value));
+                                break;
+                            case "Orientation":
+                                result = device.SetOrientation(int.Parse(config.Value));
+                                break;
+                            case "Location":
+                                result = device.SetLocation(Boolean.Parse(config.Value));
+                                break;
+                            case "Volume":
+                                result = device.SetVolume(Boolean.Parse(config.Value));
+                                break;
+                            case "Flashlight":
+                                throw new NotImplementedException("Flashlight");
+                            default:
+                                throw new Exception("Unknown Device Context Configuration property: " + config.Key);
+                        }
+                    }
+                    if (result != true)
+                    {
+                        _logger.LogError($"Failed to set {config.Key} of {device.SerialNumber} to {config.Value}");
+                        return result;
+                    }
+                    else 
+                    {
+                        _logger.LogInformation($"Successfully set {config.Key} of {device.SerialNumber} to {config.Value}");
+                    }
+                }
+            }
+            return result;
+        }
 
+        public static bool ValidateDeviceProperties(DeviceProperties deviceProperties, string deviceFilterJson)
+        {
+            var deviceFilter = JsonConvert.DeserializeObject<Dictionary<string, object>>(deviceFilterJson);
 
+            foreach (var filterItem in deviceFilter)
+            {
+                var property = typeof(DeviceProperties).GetProperty(filterItem.Key);
+
+                if (property == null)
+                {
+                    // The property does not exist in the DeviceProperties class, so it cannot be satisfied.
+                    return false;
+                }
+
+                var propertyValue = property.GetValue(deviceProperties)?.ToString();
+
+                if (propertyValue != filterItem.Value?.ToString())
+                {
+                    // The property value does not match the filter value, so it cannot be satisfied.
+                    return false;
+                }
+            }
+
+            // All the filter properties have been satisfied by the corresponding properties in the DeviceProperties object.
+            return true;
+        }
+
+        public FilterDefinition<Device> buildDeviceSelectionFilter(Dictionary<string, string> deviceFilter){
+            var builder = Builders<Device>.Filter;
+            var filter = builder.Empty;
+            filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
+            foreach (var property in deviceFilter)
+            {
+                string key = "DeviceProperties." + property.Key;
+                string value = property.Value;
+                if (property.Key == "AndroidVersion" || property.Key == "SdkVersion")
+                {
+                    filter &= Builders<Device>.Filter.Eq(key, int.Parse(value));
+                }
+                else if (property.Key == "ScreenResolution")
+                {
+                    ScreenResolution screenResolution = JsonConvert.DeserializeObject<ScreenResolution>(value);
+                    filter &= Builders<Device>.Filter.Eq(key, screenResolution);
+                }
+                else if (property.Key == "Battery")
+                {
+                    Battery battery = JsonConvert.DeserializeObject<Battery>(value);
+                    filter &= Builders<Device>.Filter.Eq(key, battery);
+                }
+                else
+                {
+                    filter &= Builders<Device>.Filter.Eq("DeviceProperties." + property.Key, property.Value);
+                }
+            }
+            return filter;
+        }
         public async Task updateTestRunStatus(TestRun testRun, TestRunStatus status)
         {
             var testRunFilter = Builders<TestRun>.Filter.Where(x => x.Id == testRun.Id);
@@ -435,15 +471,27 @@ namespace TestMate.Runner.BackgroundServices
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
         }
 
+        public async Task<DeviceStatus> getDeviceStatus(Device device)
+        {
+            var deviceFilter = Builders<Device>.Filter.Where(d => d.SerialNumber == device.SerialNumber);
+            device = await _devicesCollection.Find(deviceFilter).FirstAsync();
+            return device.Status;
+        }
+
         public async Task updateDeviceStatus(Device device, DeviceStatus status) {
             var deviceFilter = Builders<Device>.Filter.Where(d => d.SerialNumber == device.SerialNumber);
             var deviceUpdate = Builders<Device>.Update.Set(d => d.Status, status);
             await _devicesCollection.UpdateOneAsync(deviceFilter, deviceUpdate);
         }
+
+        public async Task updateDeviceProperties(Device device, DeviceProperties properties) {
+            var filter = Builders<Device>.Filter.Eq(x => x.SerialNumber, device.SerialNumber);
+            var update = Builders<Device>.Update
+                .Set(d => d.DeviceProperties, properties);
+             
+            await _devicesCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = false });
+        }
+
+
     }
-
-
-
-
-
 }

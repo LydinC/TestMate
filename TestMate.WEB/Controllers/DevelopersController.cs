@@ -75,7 +75,6 @@ namespace TestMate.WEB.Controllers
         [Route("Developers/Details")]
         public async Task<IActionResult> Details()
         {
-
             var response = await _client.GetAsync(_client.BaseAddress + "/Details");
             APIResponse<DeveloperDetailsDTO> result = await response.ReadContentAsync<APIResponse<DeveloperDetailsDTO>>();
 

@@ -1,14 +1,16 @@
 ﻿@model TestMate.Common.Models.TestRequests.TestRequest
+@using Newtonsoft.Json;
 
 @{
-    ViewData["Title"] = "TestRequestDetails";
+    ViewData["Title"] = "Test Request Details";
 }
 
-<h1>TestRequestDetails</h1>
+<h1>Details</h1>
 
 <div>
     <h4>TestRequest</h4>
     <hr />
+    <h5>General Details</h5>
     <dl class="row">
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Id)
@@ -40,9 +42,60 @@
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.Timestamp)
         </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.RetryCount)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.RetryCount)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.NumberOfTestRuns)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.NumberOfTestRuns)
+        </dd>
+        
+        @if (Model.RequestId.ToString() != null)
+        {
+            <div>
+                <a asp-controller="TestRuns" asp-action="List" asp-route-RequestId="@Model.RequestId">View Test Run List</a>
+            </div> 
+        }
 
     </dl>
+    <hr />
+    <h5>Configuration Details</h5>
+    <dl>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Configuration.ApkPath)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Configuration.ApkPath)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Configuration.TestExecutablePath)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Configuration.TestExecutablePath)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Configuration.DesiredDeviceProperties)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Configuration.DesiredDeviceProperties)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Configuration.DesiredContextConfiguration)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Configuration.DesiredContextConfiguration)
+        </dd>
+    </dl>
 </div>
+
+<hr />
+
 <div>
-    <a asp-action="TestRequests">Back to List</a>
+    <a asp-action="Index">Back to List</a>
+    
 </div>

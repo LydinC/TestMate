@@ -20,7 +20,10 @@ namespace TestMate.Common.Models.TestRequests
         public List<string>? Operator { get; set; }
         public List<string>? ProcessorType { get; set; }
         public List<ScreenResolution>? ScreenResolution { get; set; }
+        public List<Battery>? Battery { get; set; }
         public List<string>? TimeZoneInfo { get; set; }
+
+
     }
 
 }

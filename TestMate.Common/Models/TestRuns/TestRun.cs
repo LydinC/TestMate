@@ -9,7 +9,7 @@ using System.ComponentModel.DataAnnotations;
 using TestMate.Common.Models.Devices;
 using TestMate.Common.Enums;
 
-namespace TestMate.Common.Models.TestRequests
+namespace TestMate.Common.Models.TestRuns
 {
     public class TestRun
     {
@@ -24,15 +24,17 @@ namespace TestMate.Common.Models.TestRequests
 
         [Required]
         [BsonRequired]
-        public Dictionary<string, string> DeviceFilter{ get; set; }
+        public Dictionary<string, string> DeviceFilter { get; set; }
 
         [Required]
         [BsonRequired]
-        public string ApplicationUnderTest { get; set; }
+        public string ApkPath { get; set; }
 
         [Required]
         [BsonRequired]
-        public string TestSolutionPath { get; set; }
+        public string TestExecutablePath { get; set; }
+
+        public Dictionary<string, string>? ContextConfiguration { get; set; }
 
         [Required]
         [BsonRequired]
@@ -42,19 +44,20 @@ namespace TestMate.Common.Models.TestRequests
         [BsonRequired]
         public int RetryCount { get; set; }
 
-        public TestRun(Guid testRequestID, Dictionary<string, string> deviceFilter, string applicationUnderTest, string testSolutionPath)
+        public TestRun(Guid testRequestID, Dictionary<string, string> deviceFilter, string apkPath, string testExecutablePath, Dictionary<string, string>? contextConfiguration)
         {
             TestRequestID = testRequestID;
             DeviceFilter = deviceFilter;
-            ApplicationUnderTest = applicationUnderTest;
-            TestSolutionPath = testSolutionPath;
+            ApkPath = apkPath;
+            TestExecutablePath = testExecutablePath;
             Status = TestRunStatus.New;
             RetryCount = 0;
+            ContextConfiguration = contextConfiguration;
         }
 
         public void incrementRetryCount()
         {
-            this.RetryCount++;
+            RetryCount++;
         }
     }
 }

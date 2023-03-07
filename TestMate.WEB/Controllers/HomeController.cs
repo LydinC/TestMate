@@ -32,7 +32,7 @@ namespace TestMate.WEB.Controllers
             }
         }
 
-        public IActionResult SignOut()
+        public IActionResult LogOff()
         {
             HttpContext.Session.Clear();
             Response.Cookies.Delete("auth_token");
