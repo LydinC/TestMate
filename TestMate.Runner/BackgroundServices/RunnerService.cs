@@ -1,13 +1,9 @@
-﻿using MongoDB.Bson;
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using OpenQA.Selenium.Appium.Service;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Reflection;
 using System.Text;
 using TestMate.Common.Enums;
 using TestMate.Common.Models.Devices;
@@ -72,7 +68,7 @@ namespace TestMate.Runner.BackgroundServices
                 _logger.LogInformation("RabbitMQ - TestRunQueue binded with TestRunExchange");
 
                 //Setup Qos
-                _channel.BasicQos(prefetchSize: 0, prefetchCount: 10, global: false);
+                _channel.BasicQos(prefetchSize: 0, prefetchCount: 3, global: false);
 
                 _logger.LogInformation("Successfully set up RabbitMQ");
                 _logger.LogInformation("======= RunnerService Setup Complete =======");
@@ -210,7 +206,7 @@ namespace TestMate.Runner.BackgroundServices
 
         private async Task<bool> ProcessTestRun(TestRun testRun, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Triggering process of servicing Test Run " + testRun.Id.ToString());
+            _logger.LogInformation($"Triggering process of servicing Test Run {testRun.Id}");
 
             FilterDefinition<Device> filter = buildDeviceSelectionFilter(testRun.DeviceFilter);
 
@@ -227,7 +223,14 @@ namespace TestMate.Runner.BackgroundServices
                     //Validate if the updated properties still match to confirm that filter is still satisfied
                     if (ValidateDeviceProperties(properties, JsonConvert.SerializeObject(testRun.DeviceFilter))) {
                         device = matchingDevice;
-                        break;
+
+                        //ensure that device status is still as Connected
+                        if(await getDeviceStatus(matchingDevice) == DeviceStatus.Connected)
+                        {
+                            await updateDeviceStatus(device, DeviceStatus.Running);
+                            await updateTestRunStatus(testRun, TestRunStatus.Processing);
+                            break;
+                        }
                     }
                 };
 
@@ -236,9 +239,6 @@ namespace TestMate.Runner.BackgroundServices
                     AppiumLocalService appiumService = null;
                     try
                     {
-                        await updateDeviceStatus(device, DeviceStatus.Running);
-                        await updateTestRunStatus(testRun, TestRunStatus.Processing);
-
                         string workingFolder = TestResultsWorkingPath + testRun.TestRequestID.ToString() + "\\" + testRun.Id;
 
                         appiumService = new AppiumServiceBuilder()
@@ -250,7 +250,7 @@ namespace TestMate.Runner.BackgroundServices
 
                         if (!SetDeviceContextConfigurations(device, testRun.ContextConfiguration))
                         {
-                            throw new Exception($"Could not set Device Context Configuration {testRun.ContextConfiguration}");
+                            throw new Exception($"Could not set Device Context Configuration {JsonConvert.SerializeObject(testRun.ContextConfiguration)}");
                         } ;
 
                         string udid = $"{device.IP}:{device.TcpIpPort}";
@@ -389,7 +389,7 @@ namespace TestMate.Runner.BackgroundServices
                     }
                     if (result != true)
                     {
-                        _logger.LogInformation($"Failed to set {config.Key} of {device.SerialNumber} to {config.Value}");
+                        _logger.LogError($"Failed to set {config.Key} of {device.SerialNumber} to {config.Value}");
                         return result;
                     }
                     else 
@@ -469,6 +469,13 @@ namespace TestMate.Runner.BackgroundServices
             var testRunFilter = Builders<TestRun>.Filter.Where(x => x.Id == testRun.Id);
             var testRunUpdate = Builders<TestRun>.Update.Inc(x => x.RetryCount, 1);
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
+        }
+
+        public async Task<DeviceStatus> getDeviceStatus(Device device)
+        {
+            var deviceFilter = Builders<Device>.Filter.Where(d => d.SerialNumber == device.SerialNumber);
+            device = await _devicesCollection.Find(deviceFilter).FirstAsync();
+            return device.Status;
         }
 
         public async Task updateDeviceStatus(Device device, DeviceStatus status) {

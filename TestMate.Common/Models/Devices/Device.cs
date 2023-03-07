@@ -63,7 +63,7 @@ namespace TestMate.Common.Models.Devices
 
         public bool SetAutoRotateMode(bool enable)
         {
-            string setStatus = enable ? "0" : "1";
+            string setStatus = enable ? "1" : "0";
             string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put system accelerometer_rotation {setStatus}";
             string output = ConnectivityUtil.ExecuteADBCommand(command);
             return output.Equals("");

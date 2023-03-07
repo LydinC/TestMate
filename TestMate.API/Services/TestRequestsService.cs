@@ -150,7 +150,7 @@ namespace TestMate.API.Services
             
             if (desiredDeviceProperties != null)
             {
-                List<Dictionary<string, string>> deviceFilters = GetDeviceFilterPermutations(desiredDeviceProperties);
+                List<Dictionary<string, string>> deviceFilters = GeneratePermutations(desiredDeviceProperties);
                 _logger.LogDebug($"List of device filters: {deviceFilters.ToString()}");
 
                 List<Dictionary<string, string>> configurations = new List<Dictionary<string, string>>();
@@ -182,7 +182,27 @@ namespace TestMate.API.Services
             return testRuns;
         }
 
-        public static List<Dictionary<string, string>> GetDeviceFilterPermutations(Dictionary<string, List<object>> input)
+      
+        public static List<Dictionary<string, string>> GetContextConfigurationPermutations(List<DesiredContextConfiguration> desiredContextConfiguration) 
+        {
+            JsonSerializerOptions options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            var desiredContextConfigurationJsonString = JsonSerializer.Serialize(desiredContextConfiguration, options);
+            var contextConfigurations = JsonSerializer.Deserialize<List<Dictionary<string, List<object>>>>(desiredContextConfigurationJsonString);
+
+            var allPermutations = new List<Dictionary<string, string>>();
+            if (contextConfigurations.Count > 0)
+            {
+                foreach (var configuration in contextConfigurations)
+                {
+                    var permutations = GeneratePermutations(configuration);
+                    allPermutations.AddRange(permutations);
+                }
+            }
+
+            return allPermutations;
+        }
+
+        public static List<Dictionary<string, string>> GeneratePermutations(Dictionary<string, List<object>> input)
         {
             var permutations = new List<Dictionary<string, string>>();
             if (input == null || input.Count == 0)
@@ -211,7 +231,7 @@ namespace TestMate.API.Services
             // recursive case: iterate through all values for the current key and add to the permutation
             foreach (var value in values[currentIndex])
             {
-                //casting value into a string so that deviceFilter can handle all types of desiredDeviceElements
+                //casting value into a string to avoid issues with types in Mongo Collection
                 currentPermutation[keys[currentIndex]] = value.ToString();
 
                 // add the current key-value pair to the permutation, and move on to the next key
@@ -219,84 +239,6 @@ namespace TestMate.API.Services
             }
         }
 
-
-        public static List<Dictionary<string, string>> GetContextConfigurationPermutations(List<DesiredContextConfiguration> desiredContextConfiguration) 
-        {
-
-            JsonSerializerOptions options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
-            var desiredContextConfigurationJsonString = JsonSerializer.Serialize(desiredContextConfiguration, options);
-            var contextConfigurations = JsonSerializer.Deserialize<List<Dictionary<string, List<object>>>>(desiredContextConfigurationJsonString);
-
-            var allPermutations = new List<Dictionary<string, string>>();
-            if (contextConfigurations.Count > 0)
-            {
-                foreach (var configuration in contextConfigurations)
-                {
-                    var permutations = GenerateCartesianProduct(configuration);
-                    allPermutations.AddRange(permutations);
-                }
-            }
-
-            return allPermutations;
-        }
-
-
-        public static IEnumerable<Dictionary<string, string>> GenerateCartesianProduct(Dictionary<string, List<object>> input)
-        {
-            string[] keys = input.Keys.ToArray();
-            var values = input.Values.Select(list => list.ToArray()).ToArray();
-
-            // Initialise an array of indices to keep track of the current index of each list of values.
-            int[] indices = Enumerable.Repeat(-1, keys.Length).ToArray();
-
-            for (var currentIndex = keys.Length - 1; currentIndex >= 0; currentIndex--)
-            {
-                while (indices[currentIndex] < values[currentIndex].Length - 1)
-                {
-                    var combination = new Dictionary<string, string>();
-
-                    // Loop through the keys and add the corresponding value at the current index to the dictionary.
-                    for (var keyIndex = 0; keyIndex < keys.Length; keyIndex++)
-                    {
-                        combination[keys[keyIndex]] = values[keyIndex][indices[keyIndex] + 1].ToString();
-                    }
-
-                    yield return combination;
-
-                    indices[currentIndex]++;
-                }
-
-                indices[currentIndex] = -1;
-            }
-        }
-
-
-        public static IEnumerable<Dictionary<string, string>> BACKUP_GenerateCartesianProduct(Dictionary<string, List<object>> input)
-        {
-            string[] keys = input.Keys.ToArray();
-            var values = input.Values.Select(list => list.ToArray()).ToArray();
-
-            // Initialise an array of indices to keep track of the current index of each list of values.
-            int[] indices = new int[keys.Length];
-
-            for (var currentIndex = keys.Length - 1; currentIndex >= 0; currentIndex--)
-            {
-                while (indices[currentIndex] < values[currentIndex].Length)
-                {
-                    var combination = new Dictionary<string, string>();
-
-                    // Loop through the keys and add the corresponding value at the current index to the dictionary.
-                    for (var keyIndex = 0; keyIndex < keys.Length; keyIndex++)
-                    {
-                        combination[keys[keyIndex]] = values[keyIndex][indices[keyIndex]].ToString();
-                    }
-                    yield return combination;
-
-                    indices[currentIndex]++;
-                }
-                indices[currentIndex] = 0;
-            }
-        }
     }
 }
 
