@@ -7,6 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Logs\AppiumServerLogs\**" />
+    <Content Remove="Logs\AppiumServerLogs\**" />
+    <EmbeddedResource Remove="Logs\AppiumServerLogs\**" />
+    <None Remove="Logs\AppiumServerLogs\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Appium.WebDriver" Version="4.4.0" />
     <PackageReference Include="MongoDB.Driver" Version="2.19.0" />
     <PackageReference Include="NUnit.Console" Version="3.16.2" />
@@ -24,7 +31,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Logs\AppiumServerLogs\" />
     <Folder Include="Logs\NUnit_TestResults\" />
   </ItemGroup>
 

@@ -42,12 +42,6 @@
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.Timestamp)
         </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.RetryCount)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.RetryCount)
-        </dd>
         <dt class="col-sm-2">
             @Html.DisplayNameFor(model => model.NumberOfTestRuns)
         </dt>
@@ -58,7 +52,8 @@
         @if (Model.RequestId.ToString() != null)
         {
             <div>
-                <a asp-controller="TestRuns" asp-action="List" asp-route-RequestId="@Model.RequestId">View Test Run List</a>
+                @Html.ActionLink("View Test Runs", "List", "TestRuns", new { RequestId = Model.RequestId }, new { @class = "btn btn-primary" })
+                @* <a asp-controller="TestRuns" asp-action="List" asp-route-RequestId="@Model.RequestId">View Test Run List</a> *@
             </div> 
         }
 
@@ -82,13 +77,19 @@
             @Html.DisplayNameFor(model => model.Configuration.DesiredDeviceProperties)
         </dt>
         <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Configuration.DesiredDeviceProperties)
+            @if(Model.Configuration.DesiredDeviceProperties != null)
+            {
+                <pre>@Html.Raw(JsonConvert.SerializeObject(Model.Configuration.DesiredDeviceProperties, Formatting.Indented))</pre>
+            }
         </dd>
         <dt class="col-sm-2">
             @Html.DisplayNameFor(model => model.Configuration.DesiredContextConfiguration)
         </dt>
         <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Configuration.DesiredContextConfiguration)
+            @if (Model.Configuration.DesiredContextConfiguration != null)
+            {
+                <pre>@Html.Raw(JsonConvert.SerializeObject(Model.Configuration.DesiredContextConfiguration, Formatting.Indented))</pre>
+            }
         </dd>
     </dl>
 </div>

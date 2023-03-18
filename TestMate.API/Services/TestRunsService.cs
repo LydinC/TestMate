@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.Enums;
 using Microsoft.AspNetCore.Mvc;
+using SharpCompress.Common;
+using MongoDB.Bson;
 
 namespace TestMate.API.Services
 {
@@ -69,13 +71,11 @@ namespace TestMate.API.Services
             }
         }
 
-
         public async Task<APIResponse<TestRunStatus>> GetStatus(string id)
         {
             try
             {
                 TestRun testRun = await _testRunsCollection.Find(x => x.Id == id).SingleOrDefaultAsync();
-
                 if(testRun == null)
                 {
                     return new APIResponse<TestRunStatus>(Status.Error, $"Test Run ID {id} does not exist.");
@@ -88,5 +88,55 @@ namespace TestMate.API.Services
             }
         }
 
+        public async Task<APIResponse<string>> GetBasicHTMLReport(string id)
+        {
+            try
+            {
+                TestRun testRun = await _testRunsCollection.Find(x => x.Id == id).SingleOrDefaultAsync();
+                if (testRun == null)
+                {
+                    return new APIResponse<string>(Status.Error, $"Test Run ID {id} does not exist.");
+                }
+                string htmlReportPath = $@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnit3TestReport.html";
+                if (File.Exists(htmlReportPath))
+                {
+                    string fileContent = System.IO.File.ReadAllText(htmlReportPath);
+                    return new APIResponse<string>(fileContent);
+                } else {
+                    throw new Exception("Basic HTML Test Report does not exist");
+                }
+            }
+            catch (Exception ex)
+            {
+                return new APIResponse<string>(Status.Error, ex.Message);
+            }
+        }
+
+
+        public async Task<APIResponse<string>> GetFullHTMLReport(string id)
+        {
+            try
+            {
+                TestRun testRun = await _testRunsCollection.Find(x => x.Id == id).SingleOrDefaultAsync();
+                if (testRun == null)
+                {
+                    return new APIResponse<string>(Status.Error, $"Test Run ID {id} does not exist.");
+                }
+                string htmlReportPath = $@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{testRun.TestRequestID.ToString()}\{testRun.Id}\index.html";
+                if (File.Exists(htmlReportPath))
+                {
+                    string fileContent = System.IO.File.ReadAllText(htmlReportPath);
+                    return new APIResponse<string>(fileContent);
+                }
+                else
+                {
+                    throw new Exception("Full HTML Test Report does not exist");
+                }
+            }
+            catch (Exception ex)
+            {
+                return new APIResponse<string>(Status.Error, ex.Message);
+            }
+        }
     }
 }

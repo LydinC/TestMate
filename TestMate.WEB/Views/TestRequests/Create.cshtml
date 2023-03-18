@@ -13,43 +13,45 @@
         <form method="post" enctype="multipart/form-data">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <div>
-                <label asp-for="TestPackage"> Test Package: (.zip)</label><br />
+                <label asp-for="TestPackage"> <b>Test Package: (.zip)</b></label><br />
                 <input asp-for="TestPackage" type="file" name="TestPackage" id="TestPackage" required /><br />
                 <span asp-validation-for="TestPackage"></span><br />
             </div>
             <br>
             <div class="form-group">
-                <label asp-for="ApplicationUnderTest"> Mobile Application (.apk)</label><br />
+                <label asp-for="ApplicationUnderTest"> <b>Mobile Application (.apk)</b></label><br />
                 <input asp-for="ApplicationUnderTest" type="file" name="ApplicationUnderTest" id="ApplicationUnderTest" required /><br />
                 <span asp-validation-for="ApplicationUnderTest"></span><br />
             </div>
             <br>
             <div class="form-group">
-                <label asp-for="TestExecutableFileNames" class="control-label"></label>
+                <label asp-for="TestExecutableFileNames" class="control-label"> <b>Test Executable Filename/s</b> </label>
                 <input asp-for="TestExecutableFileNames" class="form-control" required />
                 <span asp-validation-for="TestExecutableFileNames" class="text-danger"></span>
             </div>
             <br>
             <div class="form-group">
-                <label asp-for="DesiredDeviceProperties" class="control-label"></label>
+                <label asp-for="DesiredDeviceProperties" class="control-label"> <b>Desired Device Properties</b></label>
                 <input asp-for="DesiredDeviceProperties" class="form-control" required />
                 <span asp-validation-for="DesiredDeviceProperties" class="text-danger"></span>
             </div>
             <br>
             <div class="form-group">
-                <label asp-for="DesiredContextConfiguration" class="control-label"></label>
+                <label asp-for="DesiredContextConfiguration" class="control-label"> <b>Desired Context Configurations</b> </label>
                 <input asp-for="DesiredContextConfiguration" class="form-control" />
                 <span asp-validation-for="DesiredContextConfiguration" class="text-danger"></span>
             </div>
             <br>
-            <button type="submit" class="btn-primary">Submit</button>
+            <div>
+                <button type="submit" class="btn-primary">Submit</button>
+            </div>
         </form>
 
     </div>
 </div>
-
+<br />
 <div>
-    <a asp-action="TestRequests">Back to List</a>
+    <a asp-action="Index">Back to List</a>
 </div>
 
 @if (@TempData["Success"] != null)
