@@ -6,52 +6,102 @@
 
 <h1>Test Runs List</h1>
 
-<table class="table">
+<br />
+<div>
+    @if(Model.FirstOrDefault() != null)
+    {
+        <h4>Generic Details</h4>
+        <hr />
+        <div>
+            <strong>TestRequestID:</strong>
+            <span>@Model.FirstOrDefault()?.TestRequestID</span>
+        </div>
+        <br />
+        <div>
+            <strong>ApkPath:</strong>
+            <span>@Model.FirstOrDefault()?.ApkPath</span>
+        </div>
+        <br />
+        <div>
+            <strong>TestExecutablePath:</strong>
+            <span>@Model.FirstOrDefault()?.TestExecutablePath</span>
+        </div>
+    }
+</div>
+
+<hr />
+<br />
+
+
+<h4>Run Details</h4>
+<br />
+<div>
+    <button onclick="refreshPage()">Refresh Data</button>
+</div>
+<br />
+
+<table class="table" id="tbl_run_details">
     <thead>
         <tr>
             <th>
                 @Html.DisplayNameFor(model => model.Id)
             </th>
             <th>
-                @Html.DisplayNameFor(model => model.TestRequestID)
+                @Html.DisplayNameFor(model => model.DeviceFilter)
             </th>
             <th>
-                @Html.DisplayNameFor(model => model.ApkPath)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.TestExecutablePath)
+                @Html.DisplayNameFor(model => model.ContextConfiguration)
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.Status)
             </th>
             <th>
+                @Html.DisplayNameFor(model => model.Result)
+            </th>
+            <th>
                 @Html.DisplayNameFor(model => model.RetryCount)
             </th>
+            <th></th>
             <th></th>
         </tr>
     </thead>
     <tbody>
-@foreach (var item in Model) {
-        <tr>
-            <td>
-                @Html.DisplayFor(modelItem => item.Id)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.TestRequestID)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.ApkPath)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.TestExecutablePath)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Status)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.RetryCount)
-            </td>
-        </tr>
-}
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Id)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.DeviceFilter)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ContextConfiguration)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Status)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Result)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.RetryCount)
+                </td>
+                <td>
+                    <div>
+                        <a asp-controller="TestRuns" asp-action="Report" asp-route-Id="@item.Id">View Report</a>
+                    </div>
+                </td>
+                <td>
+                    @Html.ActionLink("Download", "Download", "TestRuns", new { Id = item.Id }, new { @class = "btn btn-primary" })
+                </td>
+            </tr>
+        }
     </tbody>
 </table>
+
+<script>
+    function refreshPage() {
+        window.location.reload();
+    }
+</script>

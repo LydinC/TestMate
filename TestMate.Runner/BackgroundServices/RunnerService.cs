@@ -22,6 +22,7 @@ namespace TestMate.Runner.BackgroundServices
         private readonly IMongoCollection<Device> _devicesCollection;
         private readonly IMongoCollection<TestRequest> _testRequestsCollection;
         private readonly IMongoCollection<TestRun> _testRunsCollection;
+        private readonly DeviceManager _deviceManager;
         //private readonly CancellationToken _cancellationToken;
 
         string testRunExchange = "TestRunExchange";
@@ -32,7 +33,7 @@ namespace TestMate.Runner.BackgroundServices
         int TestRunRetryLimit = 3;
         int TestRunRetryDelay = 300000; //5 minutes 
 
-        public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration)
+        public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration, DeviceManager deviceManager)
         {
             _devicesCollection = database.GetCollection<Device>("Devices");
             _testRequestsCollection = database.GetCollection<TestRequest>("TestRequests");
@@ -41,6 +42,7 @@ namespace TestMate.Runner.BackgroundServices
             _connection = connection;
             _channel = channel;
             _configuration = configuration;
+            _deviceManager = deviceManager;
             //_cancellationToken = cancellationToken;
         }
 
@@ -125,8 +127,10 @@ namespace TestMate.Runner.BackgroundServices
                             }
                             else
                             {
-                                _logger.LogError($"Failing to serve test run after {TestRunRetryLimit} attempts.");
-                                await updateTestRunStatus(testRun, TestRunStatus.FailedNoDevices);
+                                string error = $"Failing to serve test run after {TestRunRetryLimit} attempts.";
+                                _logger.LogError(error);
+                                await updateTestRunStatus(testRun, TestRunStatus.FailedNoDevices, error);
+                                await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
                             }
                         }
 
@@ -211,7 +215,7 @@ namespace TestMate.Runner.BackgroundServices
             FilterDefinition<Device> filter = buildDeviceSelectionFilter(testRun.DeviceFilter);
 
             Device? device = null;
-            List<Device> matchingDevices = _devicesCollection.Find(filter).ToList();
+             List<Device> matchingDevices = _devicesCollection.Find(filter).ToList();
             if (matchingDevices != null)
             {
                 foreach (Device matchingDevice in matchingDevices)
@@ -222,14 +226,17 @@ namespace TestMate.Runner.BackgroundServices
 
                     //Validate if the updated properties still match to confirm that filter is still satisfied
                     if (ValidateDeviceProperties(properties, JsonConvert.SerializeObject(testRun.DeviceFilter))) {
-                        device = matchingDevice;
-
+                        
                         //ensure that device status is still as Connected
                         if(await getDeviceStatus(matchingDevice) == DeviceStatus.Connected)
                         {
-                            await updateDeviceStatus(device, DeviceStatus.Running);
-                            await updateTestRunStatus(testRun, TestRunStatus.Processing);
-                            break;
+                            if(_deviceManager.LockDevice(matchingDevice)== true)
+                            {
+                                device = matchingDevice;
+                                await updateDeviceStatus(device, DeviceStatus.Running);
+                                await updateTestRunStatus(testRun, TestRunStatus.Processing, "In Progress");
+                                break;
+                            }
                         }
                     }
                 };
@@ -237,10 +244,10 @@ namespace TestMate.Runner.BackgroundServices
                 if (device != null)
                 {
                     AppiumLocalService appiumService = null;
+                    string workingFolder = TestResultsWorkingPath + testRun.TestRequestID.ToString() + "\\" + testRun.Id;
+                    
                     try
                     {
-                        string workingFolder = TestResultsWorkingPath + testRun.TestRequestID.ToString() + "\\" + testRun.Id;
-
                         appiumService = new AppiumServiceBuilder()
                         .WithIPAddress("127.0.0.1")
                         .UsingAnyFreePort()
@@ -300,50 +307,58 @@ namespace TestMate.Runner.BackgroundServices
                         using (Process process = Process.Start(startInfo))
                         {
                             string output = process.StandardOutput.ReadToEnd();
-                            string error = process.StandardError.ReadToEnd();
+                            //string error = process.StandardError.ReadToEnd();
 
                             process.WaitForExit();
                             _logger.LogInformation("Process " + process.Id + " exited with code " + process.ExitCode);
                             File.WriteAllText(workingFolder + "\\NUnitConsole_StandardOutput.txt", output);
-                            File.WriteAllText(workingFolder + "\\NUnitConsole_StandardError.txt", error);
+                            //File.WriteAllText(workingFolder + "\\NUnitConsole_StandardError.txt", error);
 
                             //TODO: Consider catering for different failure statuses as defined in https://docs.nunit.org/articles/nunit/running-tests/Console-Runner.html
-                            if (process.ExitCode >= 0)
+                            if (process.ExitCode == 0)
                             {
-                                await updateTestRunStatus(testRun, TestRunStatus.Completed);
+                                await updateTestRunStatus(testRun, TestRunStatus.Completed, "Completed and all tests passed");
+                            } else if (process.ExitCode > 0)
+                            {
+                                await updateTestRunStatus(testRun, TestRunStatus.Completed, $"Completed with {process.ExitCode} failed tests");
                             }
                             else
                             {
-                                await updateTestRunStatus(testRun, TestRunStatus.Failed);
+                                await updateTestRunStatus(testRun, TestRunStatus.Failed, "Failed");
                             }
-
                         }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError("[TEST RUN FAILED!] - " + ex.Message + ex.StackTrace, ex);
-                        await updateTestRunStatus(testRun, TestRunStatus.Failed);
+                        await updateTestRunStatus(testRun, TestRunStatus.Failed, $"Failed to execute: {ex.Message}");
                     }
                     finally
                     {
+                        _deviceManager.ReleaseDevice(device);
                         await updateDeviceStatus(device, DeviceStatus.Connected);
+                        await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
                         if (appiumService != null)
                         {
                             appiumService.Dispose();
                         }
 
+                        GenerateExtentTestReport(workingPath: workingFolder);
+                        GenerateNUnit3TestReport(workingPath: workingFolder);
                     }
                     return true;
                 }
                 else
                 {
                     _logger.LogWarning($"Postponing consumption of Test Run {testRun.Id}");
+                    await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
                     return false;
                 }
             }
             else
             {
                 _logger.LogWarning($"Postponing consumption of Test Run {testRun.Id}");
+                await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
                 return false;
             }
         }
@@ -400,7 +415,6 @@ namespace TestMate.Runner.BackgroundServices
             }
             return result;
         }
-
         public static bool ValidateDeviceProperties(DeviceProperties deviceProperties, string deviceFilterJson)
         {
             var deviceFilter = JsonConvert.DeserializeObject<Dictionary<string, object>>(deviceFilterJson);
@@ -457,10 +471,14 @@ namespace TestMate.Runner.BackgroundServices
             }
             return filter;
         }
-        public async Task updateTestRunStatus(TestRun testRun, TestRunStatus status)
+        public async Task updateTestRunStatus(TestRun testRun, TestRunStatus status, string? message)
         {
             var testRunFilter = Builders<TestRun>.Filter.Where(x => x.Id == testRun.Id);
             var testRunUpdate = Builders<TestRun>.Update.Set(x => x.Status, status);
+            if (!string.IsNullOrEmpty(message))
+            {
+                testRunUpdate = testRunUpdate.Set(d => d.Result, message);
+            }
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
         }
 
@@ -484,6 +502,28 @@ namespace TestMate.Runner.BackgroundServices
             await _devicesCollection.UpdateOneAsync(deviceFilter, deviceUpdate);
         }
 
+        public async Task updateTestRequestStatusAfterTestRun(Guid testRequestId)
+        {
+            var testRuns = await _testRunsCollection.Find(tr => tr.TestRequestID == testRequestId).ToListAsync();
+
+            TestRequestStatus newStatus;
+            if (testRuns.All(tr => (tr.Status == TestRunStatus.Completed) || (tr.Status == TestRunStatus.Failed) || (tr.Status == TestRunStatus.FailedNoDevices)))
+            {
+                newStatus = TestRequestStatus.Completed;
+            }
+            else if (testRuns.All(tr => (tr.Status == TestRunStatus.New)))
+            {
+                newStatus = TestRequestStatus.New;
+            }
+            else
+            {
+                newStatus = TestRequestStatus.PartiallyCompleted;
+            }
+
+            var update = Builders<TestRequest>.Update.Set(tr => tr.Status, newStatus);
+            await _testRequestsCollection.UpdateOneAsync(tr => tr.RequestId == testRequestId, update);
+        }
+
         public async Task updateDeviceProperties(Device device, DeviceProperties properties) {
             var filter = Builders<Device>.Filter.Eq(x => x.SerialNumber, device.SerialNumber);
             var update = Builders<Device>.Update
@@ -492,6 +532,72 @@ namespace TestMate.Runner.BackgroundServices
             await _devicesCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = false });
         }
 
+
+        public void GenerateNUnit3TestReport(string workingPath)
+        {
+            try
+            {
+                string xmlFilePath = workingPath + "\\NUnitResult.xml";
+                string htmlFilePath = workingPath + "\\NUnit3TestReport.html";
+
+                var processStartInfo = new ProcessStartInfo
+                {
+                    FileName = @"C:\NUnit3TestReport.exe",
+                    Arguments = $"-f \"{xmlFilePath}\" -o \"{htmlFilePath}\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using (var process = new Process())
+                {
+                    process.StartInfo = processStartInfo;
+                    process.Start();
+                    process.WaitForExit();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception: " + ex.Message);
+            }
+        }
+
+        public void GenerateExtentTestReport(string workingPath)
+        {
+            try
+            {
+                string xmlFilePath = workingPath + "\\NUnitResult.xml";
+                string htmlFilePath = workingPath; //automatically creates the index.html report within this directory
+
+                var processStartInfo = new ProcessStartInfo
+                {
+                    FileName = @"C:\extent.exe",
+                    Arguments = $"-i \"{xmlFilePath}\" -o \"{htmlFilePath}\" -r v3html",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using (var process = new Process())
+                {
+                    process.StartInfo = processStartInfo;
+                    process.Start();
+                    process.WaitForExit();
+                    string output = process.StandardOutput.ReadToEnd();
+                    _logger.LogInformation($"Extent Report Command ({workingPath}) with Exit Code => {process.ExitCode} and Output => {output}");
+                    if (!output.Contains("is complete"))
+                    {
+                        throw new Exception("Could not generate Xtent Report!");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception: " + ex.Message);
+            }
+        }
 
     }
 }

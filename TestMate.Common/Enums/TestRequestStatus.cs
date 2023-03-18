@@ -2,8 +2,8 @@
 {
     public enum TestRequestStatus {
         New = 0,
-        InProgress = 1,
+        PartiallyCompleted = 1,
         Cancelled = 2,
-        Completed = 4,
+        Completed = 3,
     }
 }

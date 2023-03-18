@@ -22,9 +22,6 @@
             <th>
                 @Html.DisplayNameFor(model => model.Timestamp)
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.RetryCount)
-            </th>
             <th></th>
         </tr>
     </thead>
@@ -44,12 +41,16 @@
                 @Html.DisplayFor(modelItem => item.Timestamp)
             </td>
             <td>
-                @Html.DisplayFor(modelItem => item.RetryCount)
-            </td>
-            <td>
                 @Html.ActionLink("Details", "Details", new { requestId = item.RequestId })
             </td>
         </tr>
 }
     </tbody>
 </table>
+
+@if (@TempData["Error"] != null)
+{
+    <div class="error-message form-style">
+        <p>@TempData["Error"]</p>
+    </div>
+}

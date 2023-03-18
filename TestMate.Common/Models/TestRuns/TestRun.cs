@@ -42,6 +42,10 @@ namespace TestMate.Common.Models.TestRuns
 
         [Required]
         [BsonRequired]
+        public string? Result { get; set; }
+
+        [Required]
+        [BsonRequired]
         public int RetryCount { get; set; }
 
         public TestRun(Guid testRequestID, Dictionary<string, string> deviceFilter, string apkPath, string testExecutablePath, Dictionary<string, string>? contextConfiguration)
@@ -51,7 +55,7 @@ namespace TestMate.Common.Models.TestRuns
             ApkPath = apkPath;
             TestExecutablePath = testExecutablePath;
             Status = TestRunStatus.New;
-            RetryCount = 0;
+            RetryCount = 0; 
             ContextConfiguration = contextConfiguration;
         }
 

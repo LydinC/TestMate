@@ -65,4 +65,37 @@ public class TestRunsController : ControllerBase
             return BadRequest(result);
         }
     }
+
+    [Authorize]
+    [HttpGet("{id}/HTMLReport")]
+    public async Task<IActionResult> ViewHTMLReport(string id)
+    {
+        var result = await _testRunsService.GetBasicHTMLReport(id);
+
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        else
+        {
+            return BadRequest(result);
+        }
+    }
+
+
+    [Authorize]
+    [HttpGet("{id}/HTMLReport/Download")]
+    public async Task<IActionResult> DownloadHTMLReport(string id)
+    {
+        var result = await _testRunsService.GetFullHTMLReport(id);
+
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        else
+        {
+            return BadRequest(result);
+        }
+    }
 }

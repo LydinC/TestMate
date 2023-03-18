@@ -33,6 +33,7 @@ namespace TestMate.WEB.Controllers
             else
             {
                 TempData["Error"] = result.Message;
+                _logger.LogError(result.Message);
                 return View();
             }
             

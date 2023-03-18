@@ -1,42 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Linq;
-using System.Xml.Xsl;
-using System.Xml;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Xml.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using System.Xml.Serialization;
+using System.Xml;
 
-
-public class Program
+namespace TestingConsoleApp
 {
-    public static void Main(string[] args)
-    {
-        // Load the input XML file
-        XmlDocument doc = new XmlDocument();
-        doc.Load("C:\\Users\\lydin.camilleri\\Desktop\\NUnitResult.xml");
-
-        //XmlSerializer serializer = new XmlSerializer(typeof(TestRun));
-        //TestRun testRun;
-        //using (TextReader reader = new StringReader(doc.InnerXml))
-        //{
-        //    testRun = (TestRun)serializer.Deserialize(reader);
-        //}
-       // Load the XSLT file for transforming the XML into HTML
-        XslCompiledTransform xslt = new XslCompiledTransform();
-        xslt.Load("C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestingConsoleApp\\custom.xslt");
-
-
-        // Create the output HTML file
-        using (XmlWriter writer = XmlWriter.Create("C:\\Users\\lydin.camilleri\\Desktop\\outputnew2.html", new XmlWriterSettings() { Indent = true }))
-        {
-            // Transform the XML into HTML and write it to the output file
-            xslt.Transform(doc, writer);
-        }
-    }
-
-
-
-
     public enum RunState
     {
         NotRunnable,
@@ -292,78 +264,4 @@ public class Program
         [XmlAttribute("value")]
         public string Value { get; set; }
     }
-
-    /*
-    static void Main(string[] args)
-    {
-        // Specify the paths to the input XML file and the output HTML file
-        string inputFilePath = "C:\\Users\\lydin.camilleri\\Desktop\\NUnitResult.xml";
-        string outputFilePath = "C:\\Users\\lydin.camilleri\\Desktop\\output.html";
-
-        // Load the input XML file into an XDocument object
-        XDocument doc = XDocument.Load(inputFilePath);
-
-        // Create the output HTML file
-        using (StreamWriter writer = new StreamWriter(outputFilePath))
-        {
-            // Write the HTML header and body start tags
-            writer.WriteLine("<html>");
-            writer.WriteLine("<head>");
-            writer.WriteLine("<title>NUnit Test Results</title>");
-            writer.WriteLine("<style>");
-            writer.WriteLine("table { border-collapse: collapse; width: 100%; }");
-            writer.WriteLine("td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; }");
-            writer.WriteLine("tr:nth-child(even) { background-color: #dddddd; }");
-            writer.WriteLine("</style>");
-            writer.WriteLine("</head>");
-            writer.WriteLine("<body>");
-
-            // Write the test suite name and duration
-            XElement suiteElement = doc.Descendants("test-suite").First();
-            string suiteName = suiteElement.Attribute("name").Value;
-            double suiteTime = double.Parse(suiteElement.Attribute("duration").Value);
-            writer.WriteLine($"<h1>{suiteName}</h1>");
-            writer.WriteLine($"<p>Duration: {suiteTime} seconds</p>");
-
-            // Write the test cases and their details
-            IEnumerable<XElement> caseElements = doc.Descendants("test-case");
-            foreach (XElement caseElement in caseElements)
-            {
-                string caseName = caseElement.Attribute("name").Value;
-                string caseResult = caseElement.Attribute("result").Value;
-                double caseTime = double.Parse(caseElement.Attribute("duration").Value);
-                writer.WriteLine("<h2>{0} - {1} ({2} seconds)</h2>", caseName, caseResult, caseTime);
-
-                // Write the failure details if the test case failed
-                XElement failureElement = caseElement.Descendants("failure").FirstOrDefault();
-                if (failureElement != null)
-                {
-                    string failureMessage = failureElement.Value;
-                    //string failureStackTrace = failureElement.Element("stack-trace").Value;
-                    writer.WriteLine("<p><strong>Failure Message:</strong> {0}</p>", failureMessage);
-                    //writer.WriteLine("<p><strong>Stack Trace:</strong></p>");
-                    //writer.WriteLine("<pre>{0}</pre>", failureStackTrace);
-                }
-
-                // Write the output details if there is any output
-                XElement outputElement = caseElement.Descendants("output").FirstOrDefault();
-                if (outputElement != null)
-                {
-                    string outputText = outputElement.Value.Trim();
-                    if (!string.IsNullOrEmpty(outputText))
-                    {
-                        writer.WriteLine("<p><strong>Output:</strong></p>");
-                        writer.WriteLine("<pre>{0}</pre>", outputText);
-                    }
-                }
-            }
-
-            // Write the HTML body end tag
-            writer.WriteLine("</body>");
-            writer.WriteLine("</html>");
-        }
-
-        Console.WriteLine("Conversion complete");
-    }
-    */
 }
