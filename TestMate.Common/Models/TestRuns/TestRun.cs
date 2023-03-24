@@ -19,6 +19,10 @@ namespace TestMate.Common.Models.TestRuns
 
         [Required]
         [BsonRequired]
+        public string Requestor { get; set; }
+
+        [Required]
+        [BsonRequired]
         [BsonRepresentation(BsonType.String)]
         public Guid TestRequestID { get; set; }
 
@@ -48,8 +52,13 @@ namespace TestMate.Common.Models.TestRuns
         [BsonRequired]
         public int RetryCount { get; set; }
 
-        public TestRun(Guid testRequestID, Dictionary<string, string> deviceFilter, string apkPath, string testExecutablePath, Dictionary<string, string>? contextConfiguration)
+        [Required]
+        [BsonRequired]
+        public int PriorityLevel { get; set; } //0 is highest
+
+        public TestRun(string requestor, Guid testRequestID, Dictionary<string, string> deviceFilter, string apkPath, string testExecutablePath, Dictionary<string, string>? contextConfiguration, int priorityLevel)
         {
+            Requestor = requestor;
             TestRequestID = testRequestID;
             DeviceFilter = deviceFilter;
             ApkPath = apkPath;
@@ -57,6 +66,7 @@ namespace TestMate.Common.Models.TestRuns
             Status = TestRunStatus.New;
             RetryCount = 0; 
             ContextConfiguration = contextConfiguration;
+            PriorityLevel = priorityLevel;
         }
 
         public void incrementRetryCount()

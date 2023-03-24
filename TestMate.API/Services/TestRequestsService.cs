@@ -9,6 +9,7 @@ using TestMate.Common.DataTransferObjects.TestRequests;
 using TestMate.Common.Enums;
 using TestMate.Common.Models.TestRequests;
 using TestMate.Common.Models.TestRuns;
+using TestMate.Common.Prioritisation;
 
 namespace TestMate.API.Services
 {
@@ -47,7 +48,7 @@ namespace TestMate.API.Services
         {
             try
             {
-                var testRequests = await _testRequestsCollection.Find(x => x.Requestor == username ).ToListAsync();
+                var testRequests = await _testRequestsCollection.Find(x => x.Requestor == username).ToListAsync();
                 return new APIResponse<IEnumerable<TestRequest>>(testRequests);
             }
             catch (Exception ex)
@@ -104,7 +105,7 @@ namespace TestMate.API.Services
 
                 TestRequest testRequest = _mapper.Map<TestRequest>(testRequestCreateDTO);
                 testRequest.Requestor = requestor;
-                
+
                 //Produce neccessary test run entities
                 List<TestRun> testRuns = GenerateTestRunEntities(testRequest);
                 _logger.LogInformation($"TestRequest {testRequest.RequestId} resolved in {testRuns.Count} Test Runs");
@@ -112,6 +113,10 @@ namespace TestMate.API.Services
 
                 if (testRuns.Count > 0)
                 {
+                    //Prioritise Test Runs according to devised strategy
+                    TestRunPrioritisation prioritiser = new TestRunPrioritisation(TestRunPrioritisationStrategy.Random);
+                    prioritiser.Prioritise(testRuns);
+
                     await _testRequestsCollection.InsertOneAsync(testRequest);
                     await _testRunsCollection.InsertManyAsync(testRuns);
                 }
@@ -168,11 +173,13 @@ namespace TestMate.API.Services
                     foreach (var config in configurationsToUse)
                     {
                         var testRun = new TestRun(
+                            requestor: testRequest.Requestor,
                             testRequestID: testRequest.RequestId,
                             deviceFilter: deviceFilter,
                             apkPath: testRequest.Configuration.ApkPath,
                             testExecutablePath: testRequest.Configuration.TestExecutablePath,
-                            contextConfiguration: config
+                            contextConfiguration: config,
+                            priorityLevel: 1
                         );
                         testRuns.Add(testRun);
                     }

@@ -21,14 +21,18 @@ namespace TestMate.Common.Models.TestRequests
         
         public List<DesiredContextConfiguration>? DesiredContextConfiguration { get; set; }
 
+        public TestRunPrioritisationStrategy? PrioritisationStrategy { get; set; }
+
         //[Required]
         //public TestRequestConstraints Constraints { get; set; }
 
-        public TestRequestConfiguration(string apkPath, string testExecutablePath, DesiredDeviceProperties desiredDeviceProperties, List<DesiredContextConfiguration>? desiredContextConfiguration) {
+        public TestRequestConfiguration(string apkPath, string testExecutablePath, DesiredDeviceProperties desiredDeviceProperties, List<DesiredContextConfiguration>? desiredContextConfiguration, TestRunPrioritisationStrategy? prioritisationStrategy)
+        {
             ApkPath = apkPath;
             TestExecutablePath = testExecutablePath;
             DesiredDeviceProperties = desiredDeviceProperties;
             DesiredContextConfiguration = desiredContextConfiguration;
+            PrioritisationStrategy = prioritisationStrategy;
             //Constraints = constraints;
         }
     }

@@ -1,5 +1,5 @@
 ﻿@model TestMate.Common.DataTransferObjects.TestRequests.TestRequestWebCreateDTO
-
+@using TestMate.Common.Enums;
 @{
     ViewData["Title"] = "Create";
 }
@@ -40,6 +40,17 @@
                 <label asp-for="DesiredContextConfiguration" class="control-label"> <b>Desired Context Configurations</b> </label>
                 <input asp-for="DesiredContextConfiguration" class="form-control" />
                 <span asp-validation-for="DesiredContextConfiguration" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PrioritisationStrategy" class="control-label"> <b>Test Prioritisation Strategy</b> </label>
+                <select asp-for="PrioritisationStrategy" class="form-control" required>
+                    <option value="">-- Select a Test Prioritisation Strategy --</option>
+                    @foreach (var strategy in Enum.GetValues(typeof(TestRunPrioritisationStrategy)))
+                    {
+                        <option value="@strategy">@strategy</option>
+                    }
+                </select>
+                <span asp-validation-for="PrioritisationStrategy" class="text-danger"></span>
             </div>
             <br>
             <div>

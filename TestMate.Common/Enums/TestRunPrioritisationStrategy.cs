@@ -6,13 +6,9 @@ using System.Threading.Tasks;
 
 namespace TestMate.Common.Enums
 {
-    public enum TestRunStatus
+    public enum TestRunPrioritisationStrategy
     {
-        New = 0,
-        InQueue = 1,
-        Processing = 2,
-        Completed = 3,
-        Failed = 4,
-        FailedNoDevices = 5
+        Random,
+        MaximiseBrandCoverage,
     }
 }

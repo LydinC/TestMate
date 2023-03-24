@@ -31,7 +31,7 @@ namespace TestMate.Runner.BackgroundServices
 
         string TestResultsWorkingPath = "C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\";
         int TestRunRetryLimit = 3;
-        int TestRunRetryDelay = 300000; //5 minutes 
+        //int TestRunRetryDelay = 300000; //5 minutes 
 
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration, DeviceManager deviceManager)
         {
@@ -107,7 +107,11 @@ namespace TestMate.Runner.BackgroundServices
                             {
                                 testRun.incrementRetryCount();
                                 await incrementTestRunRetryCount(testRun);
-
+                                await updateTestRunStatus(testRun, TestRunStatus.New, "");
+                                _logger.LogInformation($"Test Run {testRun.Id} retry count has been incremented and reset status to New");
+                                
+                                //Commented this since with new logic, message is not going to be republished but sent back to be caught by queuing mechanism  
+                                /*
                                 //republish updated test run with a delay header
                                 string message = JsonConvert.SerializeObject(testRun);
                                 _logger.LogInformation($"Re-publishing message: {message} ");
@@ -124,6 +128,7 @@ namespace TestMate.Runner.BackgroundServices
                                     body: body
                                     );
                                 _logger.LogInformation("Re-published successfully!");
+                                */
                             }
                             else
                             {
@@ -149,7 +154,6 @@ namespace TestMate.Runner.BackgroundServices
                     _logger.LogError(ex, "Error processing message!");
                     _channel.BasicNack(deliveryTag: ea.DeliveryTag, multiple: false, requeue: false);
                 }
-
             };
 
             //Start the consumer
@@ -471,13 +475,13 @@ namespace TestMate.Runner.BackgroundServices
             }
             return filter;
         }
-        public async Task updateTestRunStatus(TestRun testRun, TestRunStatus status, string? message)
+        public async Task updateTestRunStatus(TestRun testRun, TestRunStatus status, string? resultMessage)
         {
             var testRunFilter = Builders<TestRun>.Filter.Where(x => x.Id == testRun.Id);
             var testRunUpdate = Builders<TestRun>.Update.Set(x => x.Status, status);
-            if (!string.IsNullOrEmpty(message))
+            if (!string.IsNullOrEmpty(resultMessage))
             {
-                testRunUpdate = testRunUpdate.Set(d => d.Result, message);
+                testRunUpdate = testRunUpdate.Set(d => d.Result, resultMessage);
             }
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
         }
