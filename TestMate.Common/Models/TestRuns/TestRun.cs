@@ -42,6 +42,10 @@ namespace TestMate.Common.Models.TestRuns
 
         [Required]
         [BsonRequired]
+        public int PriorityLevel { get; set; } //0 is highest
+
+        [Required]
+        [BsonRequired]
         public TestRunStatus Status { get; set; }
 
         [Required]
@@ -52,9 +56,12 @@ namespace TestMate.Common.Models.TestRuns
         [BsonRequired]
         public int RetryCount { get; set; }
 
+
         [Required]
         [BsonRequired]
-        public int PriorityLevel { get; set; } //0 is highest
+        public DateTime NextAvailableProcessingTime { get; set; }
+
+
 
         public TestRun(string requestor, Guid testRequestID, Dictionary<string, string> deviceFilter, string apkPath, string testExecutablePath, Dictionary<string, string>? contextConfiguration, int priorityLevel)
         {
@@ -67,6 +74,7 @@ namespace TestMate.Common.Models.TestRuns
             RetryCount = 0; 
             ContextConfiguration = contextConfiguration;
             PriorityLevel = priorityLevel;
+            NextAvailableProcessingTime = DateTime.UtcNow;
         }
 
         public void incrementRetryCount()

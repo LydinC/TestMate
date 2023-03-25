@@ -30,7 +30,7 @@ namespace TestMate.Runner.BackgroundServices
         string testRunRoutingKey = "testRunRoutingKey";
 
         string TestResultsWorkingPath = "C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\";
-        int TestRunRetryLimit = 3;
+        int TestRunRetryLimit = 5;
         //int TestRunRetryDelay = 300000; //5 minutes 
 
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration, DeviceManager deviceManager)
@@ -105,10 +105,9 @@ namespace TestMate.Runner.BackgroundServices
 
                             if (testRun.RetryCount < TestRunRetryLimit)
                             {
-                                testRun.incrementRetryCount();
-                                await incrementTestRunRetryCount(testRun);
-                                await updateTestRunStatus(testRun, TestRunStatus.New, "");
-                                _logger.LogInformation($"Test Run {testRun.Id} retry count has been incremented and reset status to New");
+                                //testRun.incrementRetryCount();
+                                await updateTestRunRetryProperties(testRun);
+                                _logger.LogInformation($"Test Run {testRun.Id} has been re-scheduled through the retry mechanism.");
                                 
                                 //Commented this since with new logic, message is not going to be republished but sent back to be caught by queuing mechanism  
                                 /*
@@ -322,7 +321,8 @@ namespace TestMate.Runner.BackgroundServices
                             if (process.ExitCode == 0)
                             {
                                 await updateTestRunStatus(testRun, TestRunStatus.Completed, "Completed and all tests passed");
-                            } else if (process.ExitCode > 0)
+                            } 
+                            else if (process.ExitCode > 0)
                             {
                                 await updateTestRunStatus(testRun, TestRunStatus.Completed, $"Completed with {process.ExitCode} failed tests");
                             }
@@ -486,10 +486,13 @@ namespace TestMate.Runner.BackgroundServices
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
         }
 
-        public async Task incrementTestRunRetryCount(TestRun testRun)
+        public async Task updateTestRunRetryProperties(TestRun testRun)
         {
             var testRunFilter = Builders<TestRun>.Filter.Where(x => x.Id == testRun.Id);
-            var testRunUpdate = Builders<TestRun>.Update.Inc(x => x.RetryCount, 1);
+            var testRunUpdate = Builders<TestRun>.Update
+                       .Set(x => x.Status, TestRunStatus.New)
+                       .Inc(x => x.RetryCount, 1)
+                       .Set(x => x.NextAvailableProcessingTime, DateTime.UtcNow.AddMinutes(5));
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
         }
 
@@ -566,7 +569,6 @@ namespace TestMate.Runner.BackgroundServices
                 _logger.LogError(ex, "Exception: " + ex.Message);
             }
         }
-
         public void GenerateExtentTestReport(string workingPath)
         {
             try
