@@ -112,6 +112,32 @@ namespace TestMate.API.Services
             }
         }
 
+        public async Task<APIResponse<string>> GetNUnitReport(string id)
+        {
+            try
+            {
+                TestRun testRun = await _testRunsCollection.Find(x => x.Id == id).SingleOrDefaultAsync();
+                if (testRun == null)
+                {
+                    return new APIResponse<string>(Status.Error, $"Test Run ID {id} does not exist.");
+                }
+                string htmlReportPath = $@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnitConsole_StandardOutput.txt";
+                if (File.Exists(htmlReportPath))
+                {
+                    string fileContent = System.IO.File.ReadAllText(htmlReportPath);
+                    return new APIResponse<string>(fileContent);
+                }
+                else
+                {
+                    throw new Exception("NUnit Test Report does not exist");
+                }
+            }
+            catch (Exception ex)
+            {
+                return new APIResponse<string>(Status.Error, ex.Message);
+            }
+        }
+        
 
         public async Task<APIResponse<string>> GetFullHTMLReport(string id)
         {

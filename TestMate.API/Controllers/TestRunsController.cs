@@ -82,6 +82,22 @@ public class TestRunsController : ControllerBase
         }
     }
 
+    [Authorize]
+    [HttpGet("{id}/NUnitReport")]
+    public async Task<IActionResult> ViewNUnitReport(string id)
+    {
+        var result = await _testRunsService.GetNUnitReport(id);
+
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        else
+        {
+            return BadRequest(result);
+        }
+    }
+
 
     [Authorize]
     [HttpGet("{id}/HTMLReport/Download")]

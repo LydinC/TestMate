@@ -114,8 +114,8 @@ namespace TestMate.API.Services
                 if (testRuns.Count > 0)
                 {
                     //Prioritise Test Runs according to devised strategy
-                    TestRunPrioritisation prioritiser = new TestRunPrioritisation(TestRunPrioritisationStrategy.Random);
-                    prioritiser.Prioritise(testRuns);
+                    TestRunPrioritisation prioritiser = new TestRunPrioritisation(testRequest.Configuration.PrioritisationStrategy);
+                    testRuns = prioritiser.Prioritise(testRuns);
 
                     await _testRequestsCollection.InsertOneAsync(testRequest);
                     await _testRunsCollection.InsertManyAsync(testRuns);
@@ -179,7 +179,7 @@ namespace TestMate.API.Services
                             apkPath: testRequest.Configuration.ApkPath,
                             testExecutablePath: testRequest.Configuration.TestExecutablePath,
                             contextConfiguration: config,
-                            priorityLevel: 1
+                            priorityLevel: 0
                         );
                         testRuns.Add(testRun);
                     }

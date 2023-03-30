@@ -19,12 +19,15 @@ namespace TestMate.Common.Prioritisation
                 case TestRunPrioritisationStrategy.Random:
                     Prioritiser = new RandomPrioritiser();
                     break;
+                case TestRunPrioritisationStrategy.MaximiseBrandCoverage:
+                    Prioritiser = new MaxBrandCoveragePrioritiser();
+                    break;
+
                 default:
                     throw new ArgumentOutOfRangeException(nameof(strategy), "Unhandled Test Run Prioritisation Strategy");
             }
         }
 
-        //TODO: should i update to void?
         public List<TestRun> Prioritise(List<TestRun> testRuns) 
         {
             return Prioritiser.Prioritise(testRuns);

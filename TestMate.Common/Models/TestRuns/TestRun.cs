@@ -61,8 +61,6 @@ namespace TestMate.Common.Models.TestRuns
         [BsonRequired]
         public DateTime NextAvailableProcessingTime { get; set; }
 
-
-
         public TestRun(string requestor, Guid testRequestID, Dictionary<string, string> deviceFilter, string apkPath, string testExecutablePath, Dictionary<string, string>? contextConfiguration, int priorityLevel)
         {
             Requestor = requestor;

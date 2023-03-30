@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TestMate.Common.Enums;
-using TestMate.Common.Models.TestRuns;
+﻿using TestMate.Common.Models.TestRuns;
 
 namespace TestMate.Common.Prioritisation
 {
@@ -23,7 +17,7 @@ namespace TestMate.Common.Prioritisation
                 testRuns[j] = temp;
             }
 
-            for (int i = 0; i < range - 1; i++) {
+            for (int i = 0; i <= range - 1; i++) {
                 testRuns[i].PriorityLevel = i;
             }
 

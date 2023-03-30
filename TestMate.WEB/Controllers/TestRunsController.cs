@@ -38,8 +38,8 @@ namespace TestMate.WEB.Controllers
 
         }
 
-        [Route("TestRuns/Report")]
-        public async Task<IActionResult> Report(string Id)
+        [Route("TestRuns/BasicHTMLReport")]
+        public async Task<IActionResult> BasicHTMLReport(string Id)
         {
 
             var requestUri = new Uri(_client.BaseAddress, $"TestRuns/{Id}/HTMLReport");
@@ -58,6 +58,25 @@ namespace TestMate.WEB.Controllers
             }
         }
 
+        [Route("TestRuns/NUnitReport")]
+        public async Task<IActionResult> NUnitReport(string Id)
+        {
+
+            var requestUri = new Uri(_client.BaseAddress, $"TestRuns/{Id}/NUnitReport");
+            var response = await _client.GetAsync(requestUri);
+            APIResponse<string> result = await response.ReadContentAsync<APIResponse<string>>();
+
+            if (result.Success)
+            {
+                object htmlReportContent = (object)result.Data;
+                return View(htmlReportContent);
+            }
+            else
+            {
+                //TempData["Error"] = result.Message;
+                return View();
+            }
+        }
 
         [Route("TestRuns/Report/Download")]
         public async Task<IActionResult> Download(string Id)

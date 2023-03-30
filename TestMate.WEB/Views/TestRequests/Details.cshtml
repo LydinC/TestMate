@@ -10,7 +10,9 @@
 <div>
     <h4>TestRequest</h4>
     <hr />
+    <br />
     <h5>General Details</h5>
+    <hr />
     <dl class="row">
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Id)
@@ -36,6 +38,12 @@
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.Requestor)
         </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Configuration.PrioritisationStrategy)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Configuration.PrioritisationStrategy)
+        </dd>
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Timestamp)
         </dt>
@@ -51,6 +59,8 @@
         
         @if (Model.RequestId.ToString() != null)
         {
+            <br />
+            
             <div>
                 @Html.ActionLink("View Test Runs", "List", "TestRuns", new { RequestId = Model.RequestId }, new { @class = "btn btn-primary" })
                 @* <a asp-controller="TestRuns" asp-action="List" asp-route-RequestId="@Model.RequestId">View Test Run List</a> *@
@@ -59,7 +69,9 @@
 
     </dl>
     <hr />
+    <br />
     <h5>Configuration Details</h5>
+    <hr />
     <dl>
         <dt class="col-sm-2">
             @Html.DisplayNameFor(model => model.Configuration.ApkPath)
@@ -98,5 +110,4 @@
 
 <div>
     <a asp-action="Index">Back to List</a>
-    
 </div>

@@ -1,4 +1,5 @@
 ﻿@model IEnumerable<TestMate.Common.Models.TestRuns.TestRun>
+@using TestMate.Common.Enums;
 
 @{
     ViewData["Title"] = "Test Runs";
@@ -36,7 +37,7 @@
 <h4>Run Details</h4>
 <br />
 <div>
-    <button onclick="refreshPage()">Refresh Data</button>
+    <button onclick="refreshData()">Refresh Data</button>
 </div>
 <br />
 
@@ -53,6 +54,9 @@
                 @Html.DisplayNameFor(model => model.ContextConfiguration)
             </th>
             <th>
+                @Html.DisplayNameFor(model => model.PriorityLevel)
+            </th>
+            <th>
                 @Html.DisplayNameFor(model => model.Status)
             </th>
             <th>
@@ -61,8 +65,8 @@
             <th>
                 @Html.DisplayNameFor(model => model.RetryCount)
             </th>
-            <th></th>
-            <th></th>
+            <th>Results</th>
+            <th>Download</th>
         </tr>
     </thead>
     <tbody>
@@ -79,6 +83,9 @@
                     @Html.DisplayFor(modelItem => item.ContextConfiguration)
                 </td>
                 <td>
+                    @Html.DisplayFor(modelItem => item.PriorityLevel)
+                </td>
+                <td>
                     @Html.DisplayFor(modelItem => item.Status)
                 </td>
                 <td>
@@ -87,21 +94,39 @@
                 <td>
                     @Html.DisplayFor(modelItem => item.RetryCount)
                 </td>
-                <td>
-                    <div>
-                        <a asp-controller="TestRuns" asp-action="Report" asp-route-Id="@item.Id">View Report</a>
-                    </div>
-                </td>
-                <td>
-                    @Html.ActionLink("Download", "Download", "TestRuns", new { Id = item.Id }, new { @class = "btn btn-primary" })
-                </td>
+
+                @if(item.Status == TestRunStatus.Completed)
+                {
+                    <td>
+                      <div style="display: inline-block; transform: scale(0.9);">
+                        @Html.ActionLink("HTML", "BasicHTMLReport", "TestRuns", new { Id = item.Id }, new { @class = "btn btn-primary" })
+                      </div>
+                      <div style="display: inline-block; transform: scale(0.9);">
+                        @Html.ActionLink("NUnit", "NUnitReport", "TestRuns", new { Id = item.Id }, new { @class = "btn btn-primary" })
+                      </div>
+                    </td>
+                    <td>
+                        <div style="display: inline-block; transform: scale(0.9);">
+                            @Html.ActionLink("Download", "Download", "TestRuns", new { Id = item.Id }, new { @class = "btn btn-primary" })
+                        </div>
+                    </td>
+                } 
+                else
+                {
+                    <td>
+                        N/A
+                    </td>
+                    <td>
+                        N/A
+                    </td>
+                }
             </tr>
         }
     </tbody>
 </table>
 
 <script>
-    function refreshPage() {
+    function refreshData() {
         window.location.reload();
     }
 </script>

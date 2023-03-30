@@ -22,6 +22,6 @@ namespace TestMate.Common.DataTransferObjects.TestRequests
 
         public string? DesiredContextConfiguration { get; set; }
 
-        public TestRunPrioritisationStrategy? PrioritisationStrategy { get; set; }
+        public TestRunPrioritisationStrategy PrioritisationStrategy { get; set; }
     }
 }
