@@ -41,7 +41,7 @@ namespace TestMate.WEB.Controllers
                     {
                         HttpOnly = true,
                         Secure = true,
-                        Expires = DateTime.UtcNow.AddMinutes(15)
+                        Expires = DateTime.UtcNow.AddMinutes(30)
                     });
 
                     return RedirectToAction("Details", new { Username = developerLoginDTO.Username });

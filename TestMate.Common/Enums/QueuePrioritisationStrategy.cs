@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace TestMate.Common.Enums
 {
-    public enum LocationMode
+    public enum TestRunPrioritisationStrategy
     {
-        Off = 0,
-        On = 3
+        Random,
+        MaximiseBrandCoverage,
     }
 }

@@ -9,9 +9,10 @@ namespace TestMate.Common.Enums
     public enum TestRunStatus
     {
         New = 0,
-        Processing = 1,
-        Completed = 2,
-        Failed = 3,
-        FailedNoDevices = 4
+        InQueue = 1,
+        Processing = 2,
+        Completed = 3,
+        Failed = 4,
+        FailedNoDevices = 5
     }
 }

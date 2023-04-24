@@ -61,7 +61,6 @@ namespace TestMate.WEB.Controllers
             try
             {
                 JsonSerializerSettings jsonSettings = new JsonSerializerSettings { MissingMemberHandling = MissingMemberHandling.Error };
-                //TODO: check why providing {"abc": ["samsung"]} still deserializes??????
                 DesiredDeviceProperties? desiredDeviceProperties = JsonConvert.DeserializeObject<DesiredDeviceProperties>(testRequestWebCreateDTO.DesiredDeviceProperties, jsonSettings);
                 if (desiredDeviceProperties == null) {
                     throw new Exception("Desired Device Properties cannot be null");
@@ -86,7 +85,8 @@ namespace TestMate.WEB.Controllers
                     configuration: new TestRequestConfiguration(fileUploadResult.ApkPath,
                                                                 TestExecutablePath,
                                                                 desiredDeviceProperties,
-                                                                desiredContextConfigurations
+                                                                desiredContextConfigurations,
+                                                                testRequestWebCreateDTO.PrioritisationStrategy
                                                                 )
                     );
 
@@ -106,7 +106,7 @@ namespace TestMate.WEB.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
-                TempData["Error"] = "Something went wrong! Please try again! \r\n" + ex.Message;
+                TempData["Error"] = "Failed to submit Test Request! Please try again! \r\n" + ex.Message;
                 return View();
             }
         }

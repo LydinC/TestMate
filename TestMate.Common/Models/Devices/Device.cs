@@ -69,9 +69,32 @@ namespace TestMate.Common.Models.Devices
             return output.Equals("");
         }
 
+        public bool SetPowerSaving(bool enable)
+        {
+            string setStatus = enable ? "1" : "0";
+            string adbCommand = $"-s {this.IP}:{this.TcpIpPort} shell settings put global low_power {setStatus}";
+            string output = ConnectivityUtil.ExecuteADBCommand(adbCommand);
+            return output.Equals("");
+        }
+
+        public bool SetNFC(bool enable)
+        {
+            string setStatus = enable ? "enable" : "disable";
+            string adbCommand = $"-s {this.IP}:{this.TcpIpPort} shell svc nfc {setStatus}";
+            string output = ConnectivityUtil.ExecuteADBCommand(adbCommand);
+            return output.Equals("");
+        }
+
+        public bool SetMobileData(bool enable)
+        {
+            string setStatus = enable ? "enable" : "disable";
+            string adbCommand = $"-s {this.IP}:{this.TcpIpPort} shell svc data {setStatus}";
+            string output = ConnectivityUtil.ExecuteADBCommand(adbCommand);
+            return output.Equals("");
+        }
         public bool SetLocation(bool enable)
         {
-            string setStatus = enable ? LocationMode.On.ToString() : LocationMode.Off.ToString();
+            string setStatus = enable ? "3" : "0"; //3 is ON, 0 is Off
             string command = $"-s {this.IP}:{this.TcpIpPort} shell settings put secure location_mode {setStatus}";
             string output = ConnectivityUtil.ExecuteADBCommand(command);
             return output.Equals("");

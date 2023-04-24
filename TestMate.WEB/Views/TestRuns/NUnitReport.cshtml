@@ -1,0 +1,11 @@
+﻿@model string
+
+@if (string.IsNullOrEmpty(Model))
+{
+    <h2>NUnit Report could not be found :(</h2>
+}
+else
+{
+    <h4>NUnit Test Run Report</h4>
+    <iframe srcdoc="@Model" style="width: 100%; height: 500px;"></iframe>
+}

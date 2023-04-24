@@ -97,6 +97,30 @@ public class DevicesController : ControllerBase
     }
 
 
+    [HttpPost("Disconnect")]
+    public async Task<IActionResult> Disconnect([FromBody] DevicesConnectDTO device)
+    {
+        if (ModelState.IsValid)
+        {
+            var result = await _devicesService.DisconnectDevice(device);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            else
+            {
+                return BadRequest(result);
+            }
+        }
+        else
+        {
+            return BadRequest(ModelState);
+        }
+    }
+
+
+
     //[Authorize]
     [HttpPut("Update")]
     public async Task<IActionResult> Update([FromBody] Device updatedDevice)

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
+using TestMate.Common.Enums;
 using TestMate.Common.Models.TestRequests;
 
 namespace TestMate.Common.DataTransferObjects.TestRequests
@@ -20,5 +21,7 @@ namespace TestMate.Common.DataTransferObjects.TestRequests
         public string DesiredDeviceProperties { get; set; } = null!;
 
         public string? DesiredContextConfiguration { get; set; }
+
+        public TestRunPrioritisationStrategy PrioritisationStrategy { get; set; }
     }
 }

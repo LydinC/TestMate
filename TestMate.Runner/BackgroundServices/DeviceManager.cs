@@ -30,8 +30,6 @@ namespace TestMate.Runner.BackgroundServices
                 // returns true if semaphore is available, otherwise false
                 return semaphore.Wait(0);
             }
-            
-            
         }
 
 

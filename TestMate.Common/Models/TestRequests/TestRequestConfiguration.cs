@@ -21,14 +21,18 @@ namespace TestMate.Common.Models.TestRequests
         
         public List<DesiredContextConfiguration>? DesiredContextConfiguration { get; set; }
 
+        public TestRunPrioritisationStrategy PrioritisationStrategy { get; set; }
+
         //[Required]
         //public TestRequestConstraints Constraints { get; set; }
 
-        public TestRequestConfiguration(string apkPath, string testExecutablePath, DesiredDeviceProperties desiredDeviceProperties, List<DesiredContextConfiguration>? desiredContextConfiguration) {
+        public TestRequestConfiguration(string apkPath, string testExecutablePath, DesiredDeviceProperties desiredDeviceProperties, List<DesiredContextConfiguration>? desiredContextConfiguration, TestRunPrioritisationStrategy prioritisationStrategy)
+        {
             ApkPath = apkPath;
             TestExecutablePath = testExecutablePath;
             DesiredDeviceProperties = desiredDeviceProperties;
             DesiredContextConfiguration = desiredContextConfiguration;
+            PrioritisationStrategy = prioritisationStrategy;
             //Constraints = constraints;
         }
     }
@@ -51,7 +55,16 @@ namespace TestMate.Common.Models.TestRequests
         public List<DeviceScreenOrientation>? Orientation { get; set; }
         //user_rotation: actual rotation, clockwise, 0 0°, 1 90°, 2 180°, 3 270°
 
-        public List<LocationMode>? Location { get; set; }
+        public List<bool>? PowerSaving { get; set; }
+        //shell settings put global low_power 1   //to get value shell settings get global low_power
+
+        public List<bool>? NFC { get; set; }
+        //shell svc nfc [enable|disable]
+
+        public List<bool>? MobileData { get; set; }
+        //shell svc data [enable|disable]
+
+        public List<bool>? Location { get; set; }
         //shell settings put secure location_mode 0(OFF), 3 (ON)
 
         public List<bool>? Volume { get; set; }
@@ -61,7 +74,6 @@ namespace TestMate.Common.Models.TestRequests
 
         //TODO: STILL TO CHECK IF MANIPULATING THESE OPTIONS IS VIABLE OR NOT
         //public List<DeviceRingMode> RingMode { get; set; }
-        //public bool BatteryPowerSavingOn { get; set; }
         //public bool DoNotDisturbOn { get; set; }
 
     }

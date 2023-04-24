@@ -31,7 +31,7 @@ namespace TestMate.Runner.BackgroundServices
 
         string TestResultsWorkingPath = "C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\";
         int TestRunRetryLimit = 3;
-        int TestRunRetryDelay = 300000; //5 minutes 
+        int testCaseTimeoutInMs = 30000; //5 minutes
 
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration, DeviceManager deviceManager)
         {
@@ -105,25 +105,10 @@ namespace TestMate.Runner.BackgroundServices
 
                             if (testRun.RetryCount < TestRunRetryLimit)
                             {
-                                testRun.incrementRetryCount();
-                                await incrementTestRunRetryCount(testRun);
-
-                                //republish updated test run with a delay header
-                                string message = JsonConvert.SerializeObject(testRun);
-                                _logger.LogInformation($"Re-publishing message: {message} ");
-                                var properties = _channel.CreateBasicProperties();
-                                properties.Headers = new Dictionary<string, object>();
-                                properties.Headers.Add("x-delay", TestRunRetryDelay); 
-
-                                // Publish the message to the queue
-                                Byte[] body = Encoding.UTF8.GetBytes(message);
-                                _channel.BasicPublish(
-                                    exchange: testRunExchange,
-                                    routingKey: testRunRoutingKey,
-                                    basicProperties: properties,
-                                    body: body
-                                    );
-                                _logger.LogInformation("Re-published successfully!");
+                                //testRun.incrementRetryCount();
+                                await updateTestRunRetryProperties(testRun);
+                                await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
+                                _logger.LogInformation($"Test Run {testRun.Id} has been re-scheduled through the retry mechanism.");
                             }
                             else
                             {
@@ -149,7 +134,6 @@ namespace TestMate.Runner.BackgroundServices
                     _logger.LogError(ex, "Error processing message!");
                     _channel.BasicNack(deliveryTag: ea.DeliveryTag, multiple: false, requeue: false);
                 }
-
             };
 
             //Start the consumer
@@ -159,46 +143,6 @@ namespace TestMate.Runner.BackgroundServices
                 consumer: consumer);
             _logger.LogInformation("Consumer Started");
 
-            /* LISTENER FOR PUBLISHER */
-            _logger.LogInformation("Setting up Listener on MongoDB using ChangeStream");
-            var pipeline = new EmptyPipelineDefinition<ChangeStreamDocument<TestRun>>();
-            ChangeStreamOptions options = new ChangeStreamOptions();
-            options.FullDocument = ChangeStreamFullDocumentOption.UpdateLookup;
-            _logger.LogInformation("Successfully set up MongoDB ChangeStream");
-
-            using (var changeStream = _testRunsCollection.Watch(pipeline, options))
-            {
-                // Listen for change events
-                await changeStream.ForEachAsync(async change =>
-                {
-                    try
-                    {
-                        // Check if the change is a new insert
-                        if (change.OperationType == ChangeStreamOperationType.Insert)
-                        {
-                            // Publish the test request as a message to RabbitMQ Queue
-                            var testRun = change.FullDocument;
-                            string message = JsonConvert.SerializeObject(testRun);
-                            _logger.LogInformation($"Publishing message: {message} to exchange '{testRunExchange}'");
-
-                            // Publish the message to the queue
-                            Byte[] body = Encoding.UTF8.GetBytes(message);
-                            _channel.BasicPublish(
-                                exchange: testRunExchange,
-                                routingKey: testRunRoutingKey,
-                                basicProperties: null,
-                                body: body
-                                );
-
-                            _logger.LogInformation("Published successfully!");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"Failed to publish Test Run document {change.DocumentKey} in queue! -> " + ex.Message);
-                    }
-                });
-            }
         }
 
         public override Task StopAsync(CancellationToken cancellationToken)
@@ -290,7 +234,9 @@ namespace TestMate.Runner.BackgroundServices
                                             $" --testparam:AppiumServerUrl=\"{appiumServerUrl}\"" +
                                             $" --testparam:APP=\"" + app + "\"" +
                                             $" --testparam:UDID=\"" + udid + "\"" +
+                                            $" --timeout=\"" + testCaseTimeoutInMs + "\"" +
                                             $" --out=\"TestSolution_ConsoleOutput.txt\" " +
+                                            $" --err=\"TestSolution_StandardError.txt\" " +
                                             $" --result=\"NUnitResult.xml\"";
 
                         File.WriteAllText(workingFolder + "\\NUnitConsole_Arguments.txt", arguments);
@@ -313,12 +259,13 @@ namespace TestMate.Runner.BackgroundServices
                             _logger.LogInformation("Process " + process.Id + " exited with code " + process.ExitCode);
                             File.WriteAllText(workingFolder + "\\NUnitConsole_StandardOutput.txt", output);
                             //File.WriteAllText(workingFolder + "\\NUnitConsole_StandardError.txt", error);
-
+                            
                             //TODO: Consider catering for different failure statuses as defined in https://docs.nunit.org/articles/nunit/running-tests/Console-Runner.html
                             if (process.ExitCode == 0)
                             {
                                 await updateTestRunStatus(testRun, TestRunStatus.Completed, "Completed and all tests passed");
-                            } else if (process.ExitCode > 0)
+                            } 
+                            else if (process.ExitCode > 0)
                             {
                                 await updateTestRunStatus(testRun, TestRunStatus.Completed, $"Completed with {process.ExitCode} failed tests");
                             }
@@ -343,8 +290,11 @@ namespace TestMate.Runner.BackgroundServices
                             appiumService.Dispose();
                         }
 
-                        GenerateExtentTestReport(workingPath: workingFolder);
-                        GenerateNUnit3TestReport(workingPath: workingFolder);
+                        if(File.Exists(workingFolder + "\\NUnitResult.xml"))
+                        {
+                            GenerateExtentTestReport(workingPath: workingFolder);
+                            GenerateNUnit3TestReport(workingPath: workingFolder);
+                        }
                     }
                     return true;
                 }
@@ -389,6 +339,15 @@ namespace TestMate.Runner.BackgroundServices
                                 break;
                             case "Orientation":
                                 result = device.SetOrientation(int.Parse(config.Value));
+                                break;
+                            case "MobileData":
+                                result = device.SetMobileData(Boolean.Parse(config.Value));
+                                break;
+                            case "PowerSaving":
+                                result = device.SetPowerSaving(Boolean.Parse(config.Value));
+                                break;
+                            case "NFC":
+                                result = device.SetNFC(Boolean.Parse(config.Value));
                                 break;
                             case "Location":
                                 result = device.SetLocation(Boolean.Parse(config.Value));
@@ -471,21 +430,24 @@ namespace TestMate.Runner.BackgroundServices
             }
             return filter;
         }
-        public async Task updateTestRunStatus(TestRun testRun, TestRunStatus status, string? message)
+        public async Task updateTestRunStatus(TestRun testRun, TestRunStatus status, string? resultMessage)
         {
             var testRunFilter = Builders<TestRun>.Filter.Where(x => x.Id == testRun.Id);
             var testRunUpdate = Builders<TestRun>.Update.Set(x => x.Status, status);
-            if (!string.IsNullOrEmpty(message))
+            if (!string.IsNullOrEmpty(resultMessage))
             {
-                testRunUpdate = testRunUpdate.Set(d => d.Result, message);
+                testRunUpdate = testRunUpdate.Set(d => d.Result, resultMessage);
             }
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
         }
 
-        public async Task incrementTestRunRetryCount(TestRun testRun)
+        public async Task updateTestRunRetryProperties(TestRun testRun)
         {
             var testRunFilter = Builders<TestRun>.Filter.Where(x => x.Id == testRun.Id);
-            var testRunUpdate = Builders<TestRun>.Update.Inc(x => x.RetryCount, 1);
+            var testRunUpdate = Builders<TestRun>.Update
+                       .Set(x => x.Status, TestRunStatus.New)
+                       .Inc(x => x.RetryCount, 1)
+                       .Set(x => x.NextAvailableProcessingTime, DateTime.UtcNow.AddMinutes(5));
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
         }
 
@@ -562,7 +524,6 @@ namespace TestMate.Runner.BackgroundServices
                 _logger.LogError(ex, "Exception: " + ex.Message);
             }
         }
-
         public void GenerateExtentTestReport(string workingPath)
         {
             try
