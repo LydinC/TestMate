@@ -236,6 +236,7 @@ namespace TestMate.Runner.BackgroundServices
                                             $" --testparam:UDID=\"" + udid + "\"" +
                                             $" --timeout=\"" + testCaseTimeoutInMs + "\"" +
                                             $" --out=\"TestSolution_ConsoleOutput.txt\" " +
+                                            $" --err=\"TestSolution_StandardError.txt\" " +
                                             $" --result=\"NUnitResult.xml\"";
 
                         File.WriteAllText(workingFolder + "\\NUnitConsole_Arguments.txt", arguments);
@@ -258,7 +259,7 @@ namespace TestMate.Runner.BackgroundServices
                             _logger.LogInformation("Process " + process.Id + " exited with code " + process.ExitCode);
                             File.WriteAllText(workingFolder + "\\NUnitConsole_StandardOutput.txt", output);
                             //File.WriteAllText(workingFolder + "\\NUnitConsole_StandardError.txt", error);
-
+                            
                             //TODO: Consider catering for different failure statuses as defined in https://docs.nunit.org/articles/nunit/running-tests/Console-Runner.html
                             if (process.ExitCode == 0)
                             {

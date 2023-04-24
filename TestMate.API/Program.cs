@@ -33,6 +33,8 @@ Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(configuration)
     .CreateLogger();
 
+//Added Logger Singleton Service to add custom logging
+builder.Services.AddSingleton(Log.Logger);
 
 builder.Services.AddAutoMapper(typeof(TestRequestProfile));
 builder.Services.AddAutoMapper(typeof(DeveloperProfile));

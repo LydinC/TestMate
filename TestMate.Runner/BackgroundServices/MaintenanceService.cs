@@ -12,7 +12,9 @@ namespace TestMate.Runner.BackgroundServices
     {
         private readonly ILogger<MaintenanceService> _logger;
         private readonly IMongoCollection<Device> _devicesCollection;
-        
+
+        private readonly int _maintenanceInterval = 2; //minutes
+
         public MaintenanceService(IMongoDatabase database, ILogger<MaintenanceService> logger)
         {
             _logger = logger;
@@ -32,10 +34,8 @@ namespace TestMate.Runner.BackgroundServices
                     _logger.LogError(ex, "Error encountered during maintenance service routine.");
                 }
 
-                // Wait for 2 minutes
-                await Task.Delay(TimeSpan.FromMinutes(2), cancellationToken);
+                await Task.Delay(TimeSpan.FromMinutes(_maintenanceInterval), cancellationToken);
             }
-
         }
 
         private async Task PerformMaintenanceRoutine(CancellationToken cancellationToken)
@@ -80,7 +80,6 @@ namespace TestMate.Runner.BackgroundServices
             }, cancellationToken);
 
         }
-
 
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
