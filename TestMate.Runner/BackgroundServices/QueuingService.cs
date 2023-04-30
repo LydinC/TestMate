@@ -15,8 +15,8 @@ namespace TestMate.Runner.BackgroundServices
         private readonly IMongoCollection<TestRun> _testRunsCollection;
         private readonly IModel _channel;
 
-        private readonly int _batchInterval = 60; //seconds
-        private readonly int _batchSize = 10;
+        private readonly int _batchInterval = 45; //seconds
+        private readonly int _batchSize = 200;
         QueuePrioritisationStrategy priorityStrategy = QueuePrioritisationStrategy.BalancedDevelopers;
 
         string testRunExchange = "TestRunExchange";

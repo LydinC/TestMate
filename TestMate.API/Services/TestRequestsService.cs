@@ -43,7 +43,6 @@ namespace TestMate.API.Services
             }
         }
 
-
         public async Task<APIResponse<IEnumerable<TestRequest>>> GetTestRequests(string username)
         {
             try

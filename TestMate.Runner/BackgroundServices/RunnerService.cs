@@ -29,9 +29,10 @@ namespace TestMate.Runner.BackgroundServices
         string testRunQueue = "test-run-queue";
         string testRunRoutingKey = "testRunRoutingKey";
 
-        string TestResultsWorkingPath = "C:\\Users\\lydin.camilleri\\Desktop\\Master's Code Repo\\TestMate\\TestMate.Runner\\Logs\\NUnit_TestResults\\";
+        string TestResultsWorkingPath;
         int TestRunRetryLimit = 3;
         int testCaseTimeoutInMs = 30000; //5 minutes
+        ushort queuePrefetchSize = 200;
 
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration, DeviceManager deviceManager)
         {
@@ -44,6 +45,7 @@ namespace TestMate.Runner.BackgroundServices
             _configuration = configuration;
             _deviceManager = deviceManager;
             //_cancellationToken = cancellationToken;
+            TestResultsWorkingPath = _configuration.GetValue<string>("RelativePaths:TestResultsWorkingPath");
         }
 
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -70,7 +72,7 @@ namespace TestMate.Runner.BackgroundServices
                 _logger.LogInformation("RabbitMQ - TestRunQueue binded with TestRunExchange");
 
                 //Setup Qos
-                _channel.BasicQos(prefetchSize: 0, prefetchCount: 3, global: false);
+                _channel.BasicQos(prefetchSize: 0, prefetchCount: queuePrefetchSize, global: false);
 
                 _logger.LogInformation("Successfully set up RabbitMQ");
                 _logger.LogInformation("======= RunnerService Setup Complete =======");
@@ -99,31 +101,38 @@ namespace TestMate.Runner.BackgroundServices
                     // Run the Appium tests in a separate thread
                     var thread = new Thread(async () =>
                     {
-                        if (await ProcessTestRun(testRun, cancellationToken) == false)
+                        try
                         {
-                            _logger.LogWarning($"No available device found to serve TestRun {testRun.Id}!");
+                            if (await ProcessTestRun(testRun, cancellationToken) == false)
+                            {
+                                _logger.LogWarning($"No available device found to serve TestRun {testRun.Id}!");
 
-                            if (testRun.RetryCount < TestRunRetryLimit)
-                            {
-                                //testRun.incrementRetryCount();
-                                await updateTestRunRetryProperties(testRun);
-                                await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
-                                _logger.LogInformation($"Test Run {testRun.Id} has been re-scheduled through the retry mechanism.");
+                                if (testRun.RetryCount < TestRunRetryLimit)
+                                {
+                                    //testRun.incrementRetryCount();
+                                    await updateTestRunRetryProperties(testRun);
+                                    await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
+                                    _logger.LogInformation($"Test Run {testRun.Id} has been re-scheduled through the retry mechanism.");
+                                }
+                                else
+                                {
+                                    string error = $"Failing to serve test run after {TestRunRetryLimit} attempts.";
+                                    _logger.LogError(error);
+                                    await updateTestRunStatus(testRun, TestRunStatus.FailedNoDevices, error);
+                                    await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
+                                }
                             }
-                            else
-                            {
-                                string error = $"Failing to serve test run after {TestRunRetryLimit} attempts.";
-                                _logger.LogError(error);
-                                await updateTestRunStatus(testRun, TestRunStatus.FailedNoDevices, error);
-                                await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
-                            }
+
+                            //Always acnowledge message. If request was not processed, another message was published with the respective delay
+                            _logger.LogInformation("Acknowledging Message");
+                            _channel.BasicAck(
+                                deliveryTag: ea.DeliveryTag,
+                                multiple: false);
+
+                        } catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error processing message!");
                         }
-
-                        //Always acnowledge message. If request was not processed, another message was published with the respective delay
-                        _logger.LogInformation("Acknowledging Message");
-                        _channel.BasicAck(
-                            deliveryTag: ea.DeliveryTag,
-                            multiple: false);
                     });
 
                     _logger.LogDebug("Starting New Thread - " + thread.ManagedThreadId);
@@ -159,7 +168,7 @@ namespace TestMate.Runner.BackgroundServices
             FilterDefinition<Device> filter = buildDeviceSelectionFilter(testRun.DeviceFilter);
 
             Device? device = null;
-             List<Device> matchingDevices = _devicesCollection.Find(filter).ToList();
+            List<Device> matchingDevices = _devicesCollection.Find(filter).ToList();
             if (matchingDevices != null)
             {
                 foreach (Device matchingDevice in matchingDevices)
@@ -236,7 +245,6 @@ namespace TestMate.Runner.BackgroundServices
                                             $" --testparam:UDID=\"" + udid + "\"" +
                                             $" --timeout=\"" + testCaseTimeoutInMs + "\"" +
                                             $" --out=\"TestSolution_ConsoleOutput.txt\" " +
-                                            $" --err=\"TestSolution_StandardError.txt\" " +
                                             $" --result=\"NUnitResult.xml\"";
 
                         File.WriteAllText(workingFolder + "\\NUnitConsole_Arguments.txt", arguments);
@@ -253,24 +261,27 @@ namespace TestMate.Runner.BackgroundServices
                         using (Process process = Process.Start(startInfo))
                         {
                             string output = process.StandardOutput.ReadToEnd();
-                            //string error = process.StandardError.ReadToEnd();
+                            string error = process.StandardError.ReadToEnd();
 
                             process.WaitForExit();
-                            _logger.LogInformation("Process " + process.Id + " exited with code " + process.ExitCode);
+                            _logger.LogInformation($"TestRun {testRun.Id} running on Process {process.Id} has exited with code {process.ExitCode}");
                             File.WriteAllText(workingFolder + "\\NUnitConsole_StandardOutput.txt", output);
-                            //File.WriteAllText(workingFolder + "\\NUnitConsole_StandardError.txt", error);
+                            File.WriteAllText(workingFolder + "\\NUnitConsole_StandardError.txt", error);
                             
                             //TODO: Consider catering for different failure statuses as defined in https://docs.nunit.org/articles/nunit/running-tests/Console-Runner.html
                             if (process.ExitCode == 0)
                             {
+                                _logger.LogInformation("[TEST RUN COMPLETED!] - " + testRun.Id + " - Completed and all tests passed");
                                 await updateTestRunStatus(testRun, TestRunStatus.Completed, "Completed and all tests passed");
                             } 
                             else if (process.ExitCode > 0)
                             {
+                                _logger.LogInformation($"[TEST RUN COMPLETED!] - {testRun.Id} - Completed with {process.ExitCode} failed tests");
                                 await updateTestRunStatus(testRun, TestRunStatus.Completed, $"Completed with {process.ExitCode} failed tests");
                             }
                             else
                             {
+                                _logger.LogInformation($"[TEST RUN FAILED!] - {testRun.Id} - Failed test run with Error Code {process.ExitCode}. {error}");
                                 await updateTestRunStatus(testRun, TestRunStatus.Failed, "Failed");
                             }
                         }
@@ -390,7 +401,7 @@ namespace TestMate.Runner.BackgroundServices
 
                 var propertyValue = property.GetValue(deviceProperties)?.ToString();
 
-                if (propertyValue != filterItem.Value?.ToString())
+                if (!string.Equals(propertyValue, filterItem.Value?.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
                     // The property value does not match the filter value, so it cannot be satisfied.
                     return false;
@@ -405,6 +416,7 @@ namespace TestMate.Runner.BackgroundServices
             var builder = Builders<Device>.Filter;
             var filter = builder.Empty;
             filter &= Builders<Device>.Filter.Eq(d => d.Status, DeviceStatus.Connected);
+            
             foreach (var property in deviceFilter)
             {
                 string key = "DeviceProperties." + property.Key;
@@ -425,7 +437,7 @@ namespace TestMate.Runner.BackgroundServices
                 }
                 else
                 {
-                    filter &= Builders<Device>.Filter.Eq("DeviceProperties." + property.Key, property.Value);
+                    filter &= (Builders<Device>.Filter.Eq("DeviceProperties." + property.Key, property.Value) | Builders<Device>.Filter.Eq("DeviceProperties." + property.Key, property.Value.ToLower()));
                 }
             }
             return filter;

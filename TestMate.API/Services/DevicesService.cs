@@ -56,8 +56,8 @@ public class DevicesService
 
             if (device == null)
             {
-                _logger.LogError($"[{Task.CurrentId}] - Unable to get device with IP {ip}");
-                return new APIResponse<DeviceStatus>(Status.Error, $"Unable to get device with IP {ip}");
+                _logger.LogError($"[{Task.CurrentId}] - Device with IP {ip} is not yet registered!");
+                return new APIResponse<DeviceStatus>(Status.Error, $"Device with IP {ip} is not yet registered!");
             }
 
             _logger.LogInformation($"[{Task.CurrentId}] - Device Status retrieved as {device.Status}");
@@ -108,10 +108,17 @@ public class DevicesService
                 return new APIResponse<bool>(Status.Error, "Device could not be retrieved!", false);
             }
 
-            bool result = ConnectivityUtil.DisconnectADBDevice(device.IP, device.TcpIpPort);
-            _logger.LogInformation($"[{Task.CurrentId}] - DisconnectADBDevice Result - {result}");
+            _logger.LogInformation($"[{Task.CurrentId}] - Executing disconnect adb device.");
+            ConnectivityUtil.DisconnectADBDevice(device.IP, device.TcpIpPort);
 
-            return new APIResponse<bool>(result);
+            _logger.LogInformation($"[{Task.CurrentId}] - Updating device status to OFFLINE in DB!");
+            var filter = Builders<Device>.Filter.Eq(x => x.SerialNumber, device.SerialNumber);
+            var update = Builders<Device>.Update
+                .Set(d => d.Status, DeviceStatus.Offline);
+
+            await _devicesCollection.UpdateOneAsync(filter, update);
+         
+            return new APIResponse<bool>(true);
         }
         catch (Exception ex)
         {
@@ -156,7 +163,7 @@ public class DevicesService
                 Device deviceInDbWithSameIP = await _devicesCollection.Find(x => x.IP == deviceDTO.IP).FirstOrDefaultAsync();
 
                 //Is the device already ADB connected?
-                if (adbDevices.Any(x => x.Contains(deviceDTO.IP)))
+                if (adbDevices.Any(x => x.Contains(deviceDTO.IP + ":")))
                 {
                     _logger.LogInformation($"[{Task.CurrentId}] - Device with IP {deviceDTO.IP} is already connected via ADB. Validating properties ...");
 

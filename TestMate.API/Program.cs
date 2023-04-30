@@ -21,7 +21,6 @@ builder.Services.AddSingleton<TestRequestsService>();
 builder.Services.AddSingleton<TestRunsService>();
 builder.Services.AddSingleton<JWTAuthenticationService>();
 
-
 //Logging Configuration
 builder.Services.AddLogging(loggingBuilder =>
 {
@@ -43,7 +42,6 @@ builder.Services.AddAutoMapper(typeof(DevicesProfile));
 builder.Services.AddControllers()
     .AddJsonOptions(
         options => options.JsonSerializerOptions.PropertyNamingPolicy = null); //property names in the web API's serialized JSON response match their corresponding property names in the CLR object type. For example, the Book class's Author property serializes as Author instead of author
-
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

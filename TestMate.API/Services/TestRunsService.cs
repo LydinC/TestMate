@@ -8,6 +8,8 @@ using TestMate.Common.Enums;
 using Microsoft.AspNetCore.Mvc;
 using SharpCompress.Common;
 using MongoDB.Bson;
+using System.Diagnostics.Metrics;
+using TestMate.Common.Models.Users;
 
 namespace TestMate.API.Services
 {
@@ -16,14 +18,19 @@ namespace TestMate.API.Services
         private readonly IMongoCollection<TestRun> _testRunsCollection;
         private readonly IMapper _mapper;
         private readonly ILogger<TestRunsService> _logger;
+        private readonly IConfiguration _configuration;
 
-        public TestRunsService(IOptions<DatabaseSettings> databaseSettings, IMapper mapper, ILogger<TestRunsService> logger)
+        string HTMLReportPath;
+
+        public TestRunsService(IOptions<DatabaseSettings> databaseSettings, IMapper mapper, ILogger<TestRunsService> logger, IConfiguration configuration)
         {
             var mongoClient = new MongoClient(databaseSettings.Value.ConnectionString);
             var mongoDatabase = mongoClient.GetDatabase(databaseSettings.Value.DatabaseName);
             _testRunsCollection = mongoDatabase.GetCollection<TestRun>(databaseSettings.Value.TestRunsCollectionName);
             _mapper = mapper;
             _logger = logger;
+            _configuration = configuration;
+            HTMLReportPath = _configuration.GetValue<string>("RelativePaths:HTMLReportPath");
         }
 
         public async Task<APIResponse<IEnumerable<TestRun>>> GetTestRuns()
@@ -97,7 +104,8 @@ namespace TestMate.API.Services
                 {
                     return new APIResponse<string>(Status.Error, $"Test Run ID {id} does not exist.");
                 }
-                string htmlReportPath = $@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnit3TestReport.html";
+                string htmlReportPath = $@"{HTMLReportPath}{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnit3TestReport.html";
+                  //  $@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnit3TestReport.html";
                 if (File.Exists(htmlReportPath))
                 {
                     string fileContent = System.IO.File.ReadAllText(htmlReportPath);
@@ -121,7 +129,7 @@ namespace TestMate.API.Services
                 {
                     return new APIResponse<string>(Status.Error, $"Test Run ID {id} does not exist.");
                 }
-                string htmlReportPath = $@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnitConsole_StandardOutput.txt";
+                string htmlReportPath = $@"{HTMLReportPath}{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnitConsole_StandardOutput.txt";
                 if (File.Exists(htmlReportPath))
                 {
                     string fileContent = System.IO.File.ReadAllText(htmlReportPath);
@@ -148,7 +156,7 @@ namespace TestMate.API.Services
                 {
                     return new APIResponse<string>(Status.Error, $"Test Run ID {id} does not exist.");
                 }
-                string htmlReportPath = $@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{testRun.TestRequestID.ToString()}\{testRun.Id}\index.html";
+                string htmlReportPath = $@"{HTMLReportPath}{testRun.TestRequestID.ToString()}\{testRun.Id}\index.html";
                 if (File.Exists(htmlReportPath))
                 {
                     string fileContent = System.IO.File.ReadAllText(htmlReportPath);

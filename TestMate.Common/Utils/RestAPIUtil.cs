@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System.Net.Http.Headers;
 
-namespace DTestMate.Common.Utils
+namespace TestMate.Common.Utils
 {
     public class RestApiUtil
     {
