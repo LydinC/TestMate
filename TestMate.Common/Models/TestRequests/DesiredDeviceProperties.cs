@@ -13,7 +13,7 @@ namespace TestMate.Common.Models.TestRequests
     {
         public List<string>? Model { get; set; }
         public List<string>? Manufacturer { get; set; }
-        public List<int>? AndroidVersion { get; set; }
+        public List<string>? AndroidVersion { get; set; }
         public List<int>? SdkVersion { get; set; }
         public List<string>? Locale { get; set; }
         public List<string>? Brand { get; set; }

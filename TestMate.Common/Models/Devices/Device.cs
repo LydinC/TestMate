@@ -54,7 +54,7 @@ namespace TestMate.Common.Models.Devices
             string output = ConnectivityUtil.ExecuteADBCommand(command);
 
             //currently only catering for dimmest or brightest scenarios
-            string setLevel = max ? "50000" : "0";
+            string setLevel = max ? "255" : "0";
             command = $"-s {this.IP}:{this.TcpIpPort} shell settings put system screen_brightness {setLevel}";
             output = ConnectivityUtil.ExecuteADBCommand(command);
             

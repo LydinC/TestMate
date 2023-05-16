@@ -421,7 +421,7 @@ namespace TestMate.Runner.BackgroundServices
             {
                 string key = "DeviceProperties." + property.Key;
                 string value = property.Value;
-                if (property.Key == "AndroidVersion" || property.Key == "SdkVersion")
+                if (property.Key == "SdkVersion")
                 {
                     filter &= Builders<Device>.Filter.Eq(key, int.Parse(value));
                 }

@@ -67,7 +67,6 @@ namespace TestMate.API.Services
                     return new APIResponse<UserLoginResultDTO>(Status.Error, "Failed to log in. Please check your username and password and try again.");
 
                 return new APIResponse<UserLoginResultDTO>(Status.Ok, "Successfully logged in!", new UserLoginResultDTO { Token = _jwtAuthenticationService.GenerateJWTToken(userLoginDTO.Username) });
-
             }
             catch (Exception ex)
             {

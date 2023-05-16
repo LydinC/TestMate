@@ -9,7 +9,7 @@ namespace TestMate.Common.Models.Devices
         [Required]
         public string Manufacturer { get; set; }
         [Required]
-        public int AndroidVersion { get; set; }
+        public string AndroidVersion { get; set; }
         [Required]
         public int SdkVersion { get; set; }
         [Required]

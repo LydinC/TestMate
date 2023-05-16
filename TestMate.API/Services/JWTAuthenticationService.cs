@@ -24,7 +24,7 @@ public class JWTAuthenticationService
         var issuer = _configuration["JWTAuthentication:Issuer"];
         var audience = _configuration["JWTAuthentication:Audience"];
 
-        var expiryTime = DateTime.UtcNow.AddMinutes(30);
+        var expiryTime = DateTime.UtcNow.AddMinutes(90);
 
         //Set the claims for the JWT
         var claims = new List<Claim>

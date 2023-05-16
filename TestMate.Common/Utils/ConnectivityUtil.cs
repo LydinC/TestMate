@@ -192,7 +192,7 @@ namespace TestMate.Common.Utils
                         deviceProperties.Manufacturer = value;
                         break;
                     case "ro.build.version.release":
-                        deviceProperties.AndroidVersion = int.Parse(value);
+                        deviceProperties.AndroidVersion = value;
                         break;
                     case "ro.product.locale":
                         deviceProperties.Locale = value;

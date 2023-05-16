@@ -10,5 +10,6 @@ namespace TestMate.Common.Enums
     {
         Random,
         MaximiseBrandCoverage,
+        MaximiseModelCoverage
     }
 }

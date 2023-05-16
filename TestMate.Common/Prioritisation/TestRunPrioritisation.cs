@@ -22,7 +22,9 @@ namespace TestMate.Common.Prioritisation
                 case TestRunPrioritisationStrategy.MaximiseBrandCoverage:
                     Prioritiser = new MaxBrandCoveragePrioritiser();
                     break;
-
+                case TestRunPrioritisationStrategy.MaximiseModelCoverage:
+                    Prioritiser = new MaxModelCoveragePrioritiser();
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(strategy), "Unhandled Test Run Prioritisation Strategy");
             }
