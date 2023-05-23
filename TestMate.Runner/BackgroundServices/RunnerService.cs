@@ -33,6 +33,7 @@ namespace TestMate.Runner.BackgroundServices
         int TestRunRetryLimit = 3;
         int testCaseTimeoutInMs = 30000; //5 minutes
         ushort queuePrefetchSize = 200;
+        int processDelay = 5; //minutes
 
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration, DeviceManager deviceManager)
         {
@@ -459,7 +460,7 @@ namespace TestMate.Runner.BackgroundServices
             var testRunUpdate = Builders<TestRun>.Update
                        .Set(x => x.Status, TestRunStatus.New)
                        .Inc(x => x.RetryCount, 1)
-                       .Set(x => x.NextAvailableProcessingTime, DateTime.UtcNow.AddMinutes(5));
+                       .Set(x => x.NextAvailableProcessingTime, DateTime.UtcNow.AddMinutes(processDelay));
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
         }
 

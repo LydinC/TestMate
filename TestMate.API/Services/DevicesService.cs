@@ -30,7 +30,6 @@ public class DevicesService
         _logger = logger;
     }
 
-
     public async Task<APIResponse<IEnumerable<Device>>> GetAllDevices()
     {
         

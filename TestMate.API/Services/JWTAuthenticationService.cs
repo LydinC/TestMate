@@ -5,6 +5,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using TestMate.Common.DataTransferObjects.APIResponse;
 using TestMate.Common.Enums;
+using MongoDB.Driver.Linq;
 
 namespace TestMate.API.Services;
 
@@ -23,8 +24,9 @@ public class JWTAuthenticationService
         var secretKey = _configuration["JWTAuthentication:SecretKey"];
         var issuer = _configuration["JWTAuthentication:Issuer"];
         var audience = _configuration["JWTAuthentication:Audience"];
+        var timeout = _configuration["JWTAuthentication:ExpiryTimeout"];
 
-        var expiryTime = DateTime.UtcNow.AddMinutes(90);
+        var expiryTime = DateTime.UtcNow.AddMinutes(double.Parse(timeout));
 
         //Set the claims for the JWT
         var claims = new List<Claim>
@@ -84,7 +86,7 @@ public class JWTAuthenticationService
         }
         catch (SecurityTokenException)
         {
-            return new APIResponse<string>(Status.Error, "Securty Token Exception!");
+            return new APIResponse<string>(Status.Error, "Security Token Exception!");
         }
         catch (Exception ex) { 
             return new APIResponse<string>(Status.Error, ex.Message);
