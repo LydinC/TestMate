@@ -133,7 +133,6 @@ namespace TestMate.API.Services
             }
         }
 
-
         private Dictionary<string, List<object>>? DeserializeDesiredDeviceProperties(DesiredDeviceProperties desiredDeviceProperties)
         {
             if (desiredDeviceProperties == null)
