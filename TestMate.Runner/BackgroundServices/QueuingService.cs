@@ -51,10 +51,15 @@ namespace TestMate.Runner.BackgroundServices
         {
             await Task.Run(async () =>
             {
+                var watch = System.Diagnostics.Stopwatch.StartNew();
                 try
                 {
                     _logger.LogDebug("====== Queuing Service Started ======");
+
                     var pendingTestRuns = await _testRunsCollection.Find(tr => tr.Status == TestRunStatus.New && tr.NextAvailableProcessingTime <= DateTime.UtcNow).ToListAsync();
+
+                    _logger.LogInformation($"[PROBE] Retrieved Pending Test Runs from DB in {watch.ElapsedMilliseconds} ms");
+
                     List<TestRun> prioritisedTestRuns = new List<TestRun>();
 
                     if (pendingTestRuns.Count > 0)
@@ -62,17 +67,20 @@ namespace TestMate.Runner.BackgroundServices
                         switch (priorityStrategy)
                         {
                             case QueuePrioritisationStrategy.FIFO:
+                                
                                 //default retrieval order, no need to order
-                                prioritisedTestRuns = pendingTestRuns.Take(_batchSize).ToList();
+                                prioritisedTestRuns = pendingTestRuns.Take(_batchSize).ToList(); //0(1)
+                                
+                                _logger.LogInformation($"[PROBE] Time consumed to Retrieve and Implement Prioritisation using FIFO Strategy on a total of {pendingTestRuns.Count} Pending Test Runs is {watch.ElapsedMilliseconds} ms");
 
                                 break;
 
                             case QueuePrioritisationStrategy.BalancedDevelopers:
 
-                                var groupedTestRuns = pendingTestRuns.GroupBy(r => r.Requestor);
+                                var groupedTestRuns = pendingTestRuns.GroupBy(r => r.Requestor);  //Check O notation for grouping
 
                                 // Sort test runs within each group by priority level in descending order
-                                foreach (var group in groupedTestRuns)
+                                foreach (var group in groupedTestRuns) //TODO: to check with ChrisColombo
                                 {
                                     group.OrderBy(r => r.PriorityLevel)
                                           .ThenBy(r => r.NextAvailableProcessingTime)
@@ -92,7 +100,9 @@ namespace TestMate.Runner.BackgroundServices
                                     }
                                 }
 
-                               break;
+                                _logger.LogInformation($"[PROBE] Time consumed to Retrieve and Prioritisation using BalancedDevelopers Strategy on a total of {pendingTestRuns.Count} Pending Test Runs is {watch.ElapsedMilliseconds} ms");
+
+                                break;
 
                             default:
                                 throw new ArgumentException("Invalid prioritisation strategy");
@@ -100,7 +110,6 @@ namespace TestMate.Runner.BackgroundServices
                         }
 
                         int runsToBeQueued = prioritisedTestRuns.Count();
-
 
                         //publish messages to Exchange
                         foreach (TestRun testRun in prioritisedTestRuns)
@@ -124,9 +133,11 @@ namespace TestMate.Runner.BackgroundServices
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogError(ex, $"Failed to publish Test Run document {testRun.Id} in queue!");
+                                _logger.LogError(ex, $"[ERROR] Failed to publish Test Run document {testRun.Id} in queue!");
                             }
                         }
+                        _logger.LogInformation($"[PROBE] Updated TestRun Status to InQueue and Sent To RabbitMQ of {pendingTestRuns.Count} Pending Test Runs - Elapsed {watch.ElapsedMilliseconds} ms");
+
                         _logger.LogDebug($"Queued Test Runs: {runsToBeQueued}");
                     }
                     else {
@@ -139,6 +150,10 @@ namespace TestMate.Runner.BackgroundServices
                 }
                 finally
                 {
+                    if (watch.IsRunning)
+                    {
+                        watch.Stop();
+                    }
                     _logger.LogDebug("====== Queuing Service Ended ======");
                 }
 
