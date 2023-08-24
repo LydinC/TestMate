@@ -72,7 +72,7 @@ namespace TestMate.Runner.BackgroundServices
                 }
 
                 watch.Stop();
-                _logger.LogInformation($"[PROBE] Time consumed for maintenance service to perform maintenance routine on a total of {devicesToCheck} devices is {watch.ElapsedMilliseconds} ms");
+                _logger.LogInformation($"[PROBE_MS] Time consumed for maintenance service to perform maintenance routine on a total of {devicesToCheck.Count} devices is {watch.ElapsedMilliseconds} ms");
 
                 _logger.LogInformation($"Maintained Devices in DB: {maintainedDevicesInDB}");
                 _logger.LogInformation($"Reconnected Devices in ADB: {reconnectedDevicesInADB}");

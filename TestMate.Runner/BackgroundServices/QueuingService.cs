@@ -15,8 +15,8 @@ namespace TestMate.Runner.BackgroundServices
         private readonly IMongoCollection<TestRun> _testRunsCollection;
         private readonly IModel _channel;
 
-        private readonly int _batchInterval = 45; //seconds
-        private readonly int _batchSize = 200;
+        private readonly int _batchInterval = 60; //45 seconds
+        private readonly int _batchSize = 1000;
         QueuePrioritisationStrategy priorityStrategy = QueuePrioritisationStrategy.BalancedDevelopers;
 
         string testRunExchange = "TestRunExchange";
@@ -36,6 +36,7 @@ namespace TestMate.Runner.BackgroundServices
             {
                 try
                 {
+                    
                     await PerformQueuingJob(cancellationToken);
                 }
                 catch (Exception ex)
@@ -58,7 +59,7 @@ namespace TestMate.Runner.BackgroundServices
 
                     var pendingTestRuns = await _testRunsCollection.Find(tr => tr.Status == TestRunStatus.New && tr.NextAvailableProcessingTime <= DateTime.UtcNow).ToListAsync();
 
-                    _logger.LogInformation($"[PROBE] Retrieved Pending Test Runs from DB in {watch.ElapsedMilliseconds} ms");
+                    _logger.LogInformation($"[PROBE_QS-1] Retrieved Pending Test Runs from DB in {watch.ElapsedMilliseconds} ms");
 
                     List<TestRun> prioritisedTestRuns = new List<TestRun>();
 
@@ -71,7 +72,7 @@ namespace TestMate.Runner.BackgroundServices
                                 //default retrieval order, no need to order
                                 prioritisedTestRuns = pendingTestRuns.Take(_batchSize).ToList(); //0(1)
                                 
-                                _logger.LogInformation($"[PROBE] Time consumed to Retrieve and Implement Prioritisation using FIFO Strategy on a total of {pendingTestRuns.Count} Pending Test Runs is {watch.ElapsedMilliseconds} ms");
+                                _logger.LogInformation($"[PROBE_QS-2] Time consumed to Retrieve and Prioritise using FIFO Strategy on a total of {pendingTestRuns.Count} Pending Test Runs is {watch.ElapsedMilliseconds} ms");
 
                                 break;
 
@@ -100,7 +101,7 @@ namespace TestMate.Runner.BackgroundServices
                                     }
                                 }
 
-                                _logger.LogInformation($"[PROBE] Time consumed to Retrieve and Prioritisation using BalancedDevelopers Strategy on a total of {pendingTestRuns.Count} Pending Test Runs is {watch.ElapsedMilliseconds} ms");
+                                _logger.LogInformation($"[PROBE_QS-2] Time consumed to Retrieve and Prioritise using BalancedDevelopers Strategy on a total of {pendingTestRuns.Count} Pending Test Runs is {watch.ElapsedMilliseconds} ms");
 
                                 break;
 
@@ -136,7 +137,7 @@ namespace TestMate.Runner.BackgroundServices
                                 _logger.LogError(ex, $"[ERROR] Failed to publish Test Run document {testRun.Id} in queue!");
                             }
                         }
-                        _logger.LogInformation($"[PROBE] Updated TestRun Status to InQueue and Sent To RabbitMQ of {pendingTestRuns.Count} Pending Test Runs - Elapsed {watch.ElapsedMilliseconds} ms");
+                        _logger.LogInformation($"[PROBE_QS-3] Updated TestRun Status to InQueue and Sent To RabbitMQ of {runsToBeQueued} Pending Test Runs - Elapsed {watch.ElapsedMilliseconds} ms");
 
                         _logger.LogDebug($"Queued Test Runs: {runsToBeQueued}");
                     }

@@ -125,7 +125,7 @@ namespace TestMate.Common.Utils
 
                 Regex serialRegexPattern = new Regex("^([a-zA-Z0-9\\-]+)(\\s+)(device)");
                 Regex ipRegexPattern = new Regex(@"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\:(\d{1,5})\s+device");
-                string[] lines = output.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                string[] lines = output.Split(new string[] { Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries);
                 foreach (string line in lines)
                 {
                     if (serialRegexPattern.IsMatch(line))

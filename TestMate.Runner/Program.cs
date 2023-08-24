@@ -65,7 +65,7 @@ namespace TestMate.Runner
                     services.AddSingleton<DeviceManager>();
                     
                     services.AddHostedService<RunnerService>();
-                    services.AddHostedService<MaintenanceService>();
+                    //services.AddHostedService<MaintenanceService>();
                     services.AddHostedService<QueuingService>();
                 });
     }
