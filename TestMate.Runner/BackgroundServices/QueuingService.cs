@@ -204,6 +204,5 @@ namespace TestMate.Runner.BackgroundServices
 
             await _testRunsCollection.UpdateManyAsync(filter, update);
         }
-
     }
 }
