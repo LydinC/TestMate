@@ -1,6 +1,7 @@
 ﻿using MongoDB.Driver;
 using Newtonsoft.Json;
 using RabbitMQ.Client;
+using System.Diagnostics.Metrics;
 using System.Text;
 using TestMate.Common.Enums;
 using TestMate.Common.Models.Devices;
@@ -15,8 +16,8 @@ namespace TestMate.Runner.BackgroundServices
         private readonly IMongoCollection<TestRun> _testRunsCollection;
         private readonly IModel _channel;
 
-        private readonly int _batchInterval = 45; //seconds
-        private readonly int _batchSize = 200;
+        private readonly int _batchInterval = 45; //45 seconds
+        private readonly int _batchSize = 250;
         QueuePrioritisationStrategy priorityStrategy = QueuePrioritisationStrategy.BalancedDevelopers;
 
         string testRunExchange = "TestRunExchange";
@@ -36,6 +37,7 @@ namespace TestMate.Runner.BackgroundServices
             {
                 try
                 {
+                    
                     await PerformQueuingJob(cancellationToken);
                 }
                 catch (Exception ex)
@@ -51,65 +53,87 @@ namespace TestMate.Runner.BackgroundServices
         {
             await Task.Run(async () =>
             {
-                try
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                _logger.LogDebug("====== Queuing Service Started ======");
+
+                var pendingTestRuns = await _testRunsCollection.Find(tr => tr.Status == TestRunStatus.New && tr.NextAvailableProcessingTime <= DateTime.UtcNow).ToListAsync();
+
+
+                _logger.LogInformation($"[PROBE_QS-1] [Task {Task.CurrentId}] Retrieved Pending Test Runs from DB in {watch.ElapsedMilliseconds} ms");
+
+                List<TestRun> prioritisedTestRuns = new List<TestRun>();
+
+                if (pendingTestRuns.Count > 0)
                 {
-                    _logger.LogDebug("====== Queuing Service Started ======");
-                    var pendingTestRuns = await _testRunsCollection.Find(tr => tr.Status == TestRunStatus.New && tr.NextAvailableProcessingTime <= DateTime.UtcNow).ToListAsync();
-                    List<TestRun> prioritisedTestRuns = new List<TestRun>();
-
-                    if (pendingTestRuns.Count > 0)
+                    switch (priorityStrategy)
                     {
-                        switch (priorityStrategy)
-                        {
-                            case QueuePrioritisationStrategy.FIFO:
-                                //default retrieval order, no need to order
-                                prioritisedTestRuns = pendingTestRuns.Take(_batchSize).ToList();
+                        case QueuePrioritisationStrategy.FIFO:
 
-                                break;
+                            //default retrieval order, no need to order
+                            prioritisedTestRuns = pendingTestRuns.Take(_batchSize).ToList(); //0(1)
 
-                            case QueuePrioritisationStrategy.BalancedDevelopers:
+                            _logger.LogInformation($"[PROBE_QS-2] [Task {Task.CurrentId}] Time consumed to Retrieve and Prioritise using FIFO Strategy on a total of {pendingTestRuns.Count} Pending Test Runs is {watch.ElapsedMilliseconds} ms");
 
-                                var groupedTestRuns = pendingTestRuns.GroupBy(r => r.Requestor);
+                            break;
 
-                                // Sort test runs within each group by priority level in descending order
+                        case QueuePrioritisationStrategy.BalancedDevelopers:
+
+                            var groupedTestRuns = pendingTestRuns.GroupBy(r => r.Requestor);  //Check O notation for grouping
+
+                            // Sort test runs within each group by priority level in descending order
+                            foreach (var group in groupedTestRuns) //TODO: to check with ChrisColombo
+                            {
+                                group.OrderBy(r => r.PriorityLevel)
+                                      .ThenBy(r => r.NextAvailableProcessingTime)
+                                      .ThenByDescending(r => r.RetryCount);
+                            }
+
+                            //using round robin technique to prioritise test runs across different developers
+                            while (prioritisedTestRuns.Count < _batchSize && prioritisedTestRuns.Count < pendingTestRuns.Count)
+                            {
                                 foreach (var group in groupedTestRuns)
                                 {
-                                    group.OrderBy(r => r.PriorityLevel)
-                                          .ThenBy(r => r.NextAvailableProcessingTime)
-                                          .ThenByDescending(r => r.RetryCount);
-                                }
-
-                                //using round robin technique to prioritise test runs across different developers
-                                while (prioritisedTestRuns.Count < _batchSize && prioritisedTestRuns.Count < pendingTestRuns.Count)
-                                {
-                                    foreach (var group in groupedTestRuns)
+                                    if (prioritisedTestRuns.Count < _batchSize)
                                     {
                                         TestRun? prioritisedTestRun = group.FirstOrDefault(r => prioritisedTestRuns.Contains(r) == false);
                                         if (prioritisedTestRun != null)
                                         {
                                             prioritisedTestRuns.Add(prioritisedTestRun);
                                         }
+                                    } else
+                                    {
+                                        break;
                                     }
                                 }
+                            }
 
-                               break;
+                            _logger.LogInformation($"[PROBE_QS-2] [Task {Task.CurrentId}] Time consumed to Retrieve and Prioritise using BalancedDevelopers Strategy on a total of {pendingTestRuns.Count} Pending Test Runs is {watch.ElapsedMilliseconds} ms");
 
-                            default:
-                                throw new ArgumentException("Invalid prioritisation strategy");
+                            break;
 
-                        }
+                        default:
+                            throw new ArgumentException("Invalid prioritisation strategy");
 
-                        int runsToBeQueued = prioritisedTestRuns.Count();
+                    }
 
+                    int runsToBeQueued = prioritisedTestRuns.Count();
+                    int counter = 0;
+                    _logger.LogInformation("Going to publish " + prioritisedTestRuns.Count() + " test runs to rabbitmq");
+
+                    var bulkUpdateTask = updateBulkTestRunStatus(prioritisedTestRuns, TestRunStatus.InQueue);
+                    _logger.LogInformation("Updated TestRuns Status in DB " + watch.ElapsedMilliseconds);
 
                         //publish messages to Exchange
-                        foreach (TestRun testRun in prioritisedTestRuns)
+                    foreach (TestRun testRun in prioritisedTestRuns)
+                    {
+                        try
                         {
-                            try
-                            {
                                 //Update status to InQueue
-                                await updateTestRunStatus(testRun, TestRunStatus.InQueue);
-
+                                //await updateTestRunStatus(testRun, TestRunStatus.InQueue);
+                                //updateTestRunStatus(testRun, TestRunStatus.InQueue);
+                                
                                 // Publish deserialised test run as message to the queue
                                 string message = JsonConvert.SerializeObject(testRun);
                                 _logger.LogDebug($"Publishing message: {message} to exchange '{testRunExchange}'");
@@ -120,13 +144,16 @@ namespace TestMate.Runner.BackgroundServices
                                     basicProperties: null,
                                     body: body
                                     );
-                                _logger.LogDebug("Published successfully!");
+                                //_logger.LogInformation("Published TestRun Counter " + counter + " successfully! - " + watch.ElapsedMilliseconds);
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogError(ex, $"Failed to publish Test Run document {testRun.Id} in queue!");
+                                _logger.LogError(ex, $"[ERROR] [Task {Task.CurrentId}] Failed to publish Test Run document {testRun.Id} in queue!");
                             }
+                            counter++;
                         }
+                        _logger.LogInformation($"[PROBE_QS-3] [Task {Task.CurrentId}] Updated TestRun Status to InQueue and Sent To RabbitMQ of {runsToBeQueued} Pending Test Runs - Elapsed {watch.ElapsedMilliseconds} ms");
+
                         _logger.LogDebug($"Queued Test Runs: {runsToBeQueued}");
                     }
                     else {
@@ -139,6 +166,10 @@ namespace TestMate.Runner.BackgroundServices
                 }
                 finally
                 {
+                    if (watch.IsRunning)
+                    {
+                        watch.Stop();
+                    }
                     _logger.LogDebug("====== Queuing Service Ended ======");
                 }
 
@@ -162,6 +193,16 @@ namespace TestMate.Runner.BackgroundServices
             var testRunFilter = Builders<TestRun>.Filter.Where(x => x.Id == testRun.Id);
             var testRunUpdate = Builders<TestRun>.Update.Set(x => x.Status, status);
             await _testRunsCollection.UpdateOneAsync(testRunFilter, testRunUpdate);
+        }
+
+        public async Task updateBulkTestRunStatus(List<TestRun> testRuns, TestRunStatus status)
+        {
+            var testRunIds = testRuns.Select(x => x.Id).ToList();
+
+            var filter = Builders<TestRun>.Filter.In(x => x.Id, testRunIds);
+            var update = Builders<TestRun>.Update.Set(x => x.Status, status);
+
+            await _testRunsCollection.UpdateManyAsync(filter, update);
         }
     }
 }

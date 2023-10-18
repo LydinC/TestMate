@@ -40,9 +40,10 @@ namespace TestMate.Runner.BackgroundServices
 
         private async Task PerformMaintenanceRoutine(CancellationToken cancellationToken)
         {
-
             await Task.Run(() =>
             {
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                
                 _logger.LogInformation("====== Maintenance Start ======");
                 List<string> adbConnectedDevices = ConnectivityUtil.GetADBDevices();
 
@@ -57,6 +58,7 @@ namespace TestMate.Runner.BackgroundServices
                     {
                         if (!ConnectivityUtil.TryADBConnect(device.IP, device.TcpIpPort))
                         {
+                            //Switching Device Status to Offline in DB
                             var update = Builders<Device>.Update.Set(d => d.Status, DeviceStatus.Offline);
                             _devicesCollection.UpdateOne(d => d.Id == device.Id, update);
                             maintainedDevicesInDB++;
@@ -68,7 +70,10 @@ namespace TestMate.Runner.BackgroundServices
                         }
                     }
                 }
-                
+
+                watch.Stop();
+                _logger.LogInformation($"[PROBE_MS] Time consumed for maintenance service to perform maintenance routine on a total of {devicesToCheck.Count} devices is {watch.ElapsedMilliseconds} ms");
+
                 _logger.LogInformation($"Maintained Devices in DB: {maintainedDevicesInDB}");
                 _logger.LogInformation($"Reconnected Devices in ADB: {reconnectedDevicesInADB}");
                 _logger.LogInformation("====== Maintenance End ======");

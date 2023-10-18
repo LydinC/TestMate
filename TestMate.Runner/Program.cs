@@ -62,10 +62,10 @@ namespace TestMate.Runner
                     services.AddSingleton(Log.Logger);
                     services.AddSingleton(connection);
                     services.AddSingleton(channel);
-                    services.AddSingleton<DeviceManager>();
-                    
-                    services.AddHostedService<RunnerService>();
-                    services.AddHostedService<MaintenanceService>();
+
+                    //services.AddSingleton<DeviceManager>();
+                    //services.AddHostedService<RunnerService>();
+                    //services.AddHostedService<MaintenanceService>();
                     services.AddHostedService<QueuingService>();
                 });
     }

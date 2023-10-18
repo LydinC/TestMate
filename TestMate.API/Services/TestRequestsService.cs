@@ -106,7 +106,7 @@ namespace TestMate.API.Services
                 testRequest.Requestor = requestor;
 
                 //Produce neccessary test run entities
-                List<TestRun> testRuns = GenerateTestRunEntities(testRequest);
+                List<TestRun> testRuns = GenerateTestRunEntities(testRequest);  //being monitored using probes
                 _logger.LogInformation($"TestRequest {testRequest.RequestId} resolved in {testRuns.Count} Test Runs");
                 testRequest.NumberOfTestRuns = testRuns.Count;
 
@@ -114,7 +114,11 @@ namespace TestMate.API.Services
                 {
                     //Prioritise Test Runs according to devised strategy
                     TestRunPrioritisation prioritiser = new TestRunPrioritisation(testRequest.Configuration.PrioritisationStrategy);
+
+                    var watch = System.Diagnostics.Stopwatch.StartNew();
                     testRuns = prioritiser.Prioritise(testRuns);
+                    watch.Stop();
+                    _logger.LogInformation($"[PROBE] Time consumed to Prioritise a total of {testRuns.Count} Generated Test Runs using {testRequest.Configuration.PrioritisationStrategy} Strategy is {watch.ElapsedMilliseconds} ms");
 
                     await _testRequestsCollection.InsertOneAsync(testRequest);
                     await _testRunsCollection.InsertManyAsync(testRuns);
@@ -147,6 +151,9 @@ namespace TestMate.API.Services
 
         public List<TestRun> GenerateTestRunEntities(TestRequest testRequest)
         {
+
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
             List<TestRun> testRuns = new List<TestRun>();
             
             var desiredDeviceProperties = DeserializeDesiredDeviceProperties(testRequest.Configuration.DesiredDeviceProperties);
@@ -183,6 +190,9 @@ namespace TestMate.API.Services
                     }
                 }
             }
+            
+            watch.Stop();
+            _logger.LogInformation($"[PROBE] Time consumed to Generate TestRuns and Insert to DB a total of {testRuns.Count} is {watch.ElapsedMilliseconds} ms");
 
             return testRuns;
         }

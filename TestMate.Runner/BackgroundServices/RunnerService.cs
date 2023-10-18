@@ -32,7 +32,7 @@ namespace TestMate.Runner.BackgroundServices
         string TestResultsWorkingPath;
         int TestRunRetryLimit = 3;
         int testCaseTimeoutInMs = 30000; //5 minutes
-        ushort queuePrefetchSize = 200;
+        ushort queuePrefetchSize = 250;
         int processDelay = 5; //minutes
 
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration, DeviceManager deviceManager)
@@ -89,6 +89,7 @@ namespace TestMate.Runner.BackgroundServices
             var consumer = new EventingBasicConsumer(_channel);
             consumer.Received += (model, ea) =>
             {
+                _logger.LogInformation("Consumer Received Now");
                 try
                 {
                     _logger.LogInformation("Initiating Message Consumption Event");
@@ -99,9 +100,14 @@ namespace TestMate.Runner.BackgroundServices
 
                     TestRun? testRun = JsonConvert.DeserializeObject<TestRun>(message);
 
+                    
                     // Run the Appium tests in a separate thread
                     var thread = new Thread(async () =>
                     {
+                        _logger.LogInformation($"Thread {Thread.CurrentThread.ManagedThreadId} started at {DateTime.UtcNow}");
+                        Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
+                        _logger.LogInformation($"[PROBE-RUNNER-START] - [Thread {Thread.CurrentThread.ManagedThreadId}] Starting Test Run Id {testRun.Id} StopWatch");
+                        
                         try
                         {
                             if (await ProcessTestRun(testRun, cancellationToken) == false)
@@ -134,10 +140,14 @@ namespace TestMate.Runner.BackgroundServices
                         {
                             _logger.LogError(ex, "Error processing message!");
                         }
+                        finally
+                        {
+                            watch.Stop();
+                            _logger.LogInformation($"[PROBE-RUNNER-END] - [Thread {Thread.CurrentThread.ManagedThreadId}] Servicing Test Run ID {testRun.Id} - Elapsed {watch.ElapsedMilliseconds} ms");
+                        }
                     });
-
                     _logger.LogDebug("Starting New Thread - " + thread.ManagedThreadId);
-                    thread.Start();    
+                    thread.Start();       
                 }
                 catch (Exception ex)
                 {
@@ -152,7 +162,6 @@ namespace TestMate.Runner.BackgroundServices
                 autoAck: false,
                 consumer: consumer);
             _logger.LogInformation("Consumer Started");
-
         }
 
         public override Task StopAsync(CancellationToken cancellationToken)
@@ -164,39 +173,68 @@ namespace TestMate.Runner.BackgroundServices
 
         private async Task<bool> ProcessTestRun(TestRun testRun, CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"Triggering process of servicing Test Run {testRun.Id}");
+            Thread currentThread = Thread.CurrentThread;
+            _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] ProcessTestRun for Test Run {testRun.Id} is running on Thread {currentThread.ManagedThreadId} - {currentThread.Name} - Timestamp {DateTime.UtcNow}");
 
+            Stopwatch testExecutionWatch = new Stopwatch();
+            Stopwatch deviceSelectionWatch = Stopwatch.StartNew();
+            _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Triggering process of servicing Test Run {testRun.Id}");
+            
             FilterDefinition<Device> filter = buildDeviceSelectionFilter(testRun.DeviceFilter);
-
             Device? device = null;
             List<Device> matchingDevices = _devicesCollection.Find(filter).ToList();
+            Random random = new Random();
+            matchingDevices = matchingDevices.OrderBy(d => random.Next()).ToList();
             if (matchingDevices != null)
             {
+
+                int iteration = 0;
                 foreach (Device matchingDevice in matchingDevices)
                 {
+                    iteration++;
+
+                    _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Entered Device Selection Iteration {iteration} (Device {matchingDevice.SerialNumber})(Elapsed time - {deviceSelectionWatch.ElapsedMilliseconds})");
+
                     //Get current state of properties and update device properties in DB
                     DeviceProperties properties = ConnectivityUtil.GetDeviceProperties(matchingDevice.IP, matchingDevice.TcpIpPort);
+                    _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Device Properties Retrieved (Elapsed time - {deviceSelectionWatch.ElapsedMilliseconds})");
                     await updateDeviceProperties(matchingDevice, properties);
+                    _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Updated Device Properties Retrieved (Elapsed time - {deviceSelectionWatch.ElapsedMilliseconds})");
 
                     //Validate if the updated properties still match to confirm that filter is still satisfied
-                    if (ValidateDeviceProperties(properties, JsonConvert.SerializeObject(testRun.DeviceFilter))) {
-                        
+                    if (ValidateDeviceProperties(properties, JsonConvert.SerializeObject(testRun.DeviceFilter)))
+                    {
+                        _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Validated Device Properties (Elapsed time - {deviceSelectionWatch.ElapsedMilliseconds})");
                         //ensure that device status is still as Connected
-                        if(await getDeviceStatus(matchingDevice) == DeviceStatus.Connected)
+                        if (await getDeviceStatus(matchingDevice) == DeviceStatus.Connected)
                         {
-                            if(_deviceManager.LockDevice(matchingDevice)== true)
+                            _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Retrieved Device Status (Device {matchingDevice.SerialNumber}) (Elapsed time - {deviceSelectionWatch.ElapsedMilliseconds}");
+                            if (_deviceManager.LockDevice(matchingDevice) == true)
                             {
+                                _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Device {matchingDevice.SerialNumber} Locked (Elapsed time - {deviceSelectionWatch.ElapsedMilliseconds})");
                                 device = matchingDevice;
                                 await updateDeviceStatus(device, DeviceStatus.Running);
+                                _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Updated Device Status to Running (Elapsed time - {deviceSelectionWatch.ElapsedMilliseconds})");
                                 await updateTestRunStatus(testRun, TestRunStatus.Processing, "In Progress");
+                                _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Matching Device Confirmed (Elapsed time - {deviceSelectionWatch.ElapsedMilliseconds})");
                                 break;
+
+                            }
+                            else 
+                            {
+                                _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Cannot Lock Device {matchingDevice.SerialNumber} (Elapsed time - {deviceSelectionWatch.ElapsedMilliseconds}");
                             }
                         }
                     }
                 };
 
+                deviceSelectionWatch.Stop();
+                
                 if (device != null)
                 {
+                    _logger.LogInformation($"[PROBE-DEVICE-FOUND] [Thread {currentThread.ManagedThreadId}] [DEVICE ID {device.SerialNumber}] - Elapsed {deviceSelectionWatch.ElapsedMilliseconds}");
+
+                    Stopwatch appiumStartupWatch = Stopwatch.StartNew();
                     AppiumLocalService appiumService = null;
                     string workingFolder = TestResultsWorkingPath + testRun.TestRequestID.ToString() + "\\" + testRun.Id;
                     
@@ -220,6 +258,9 @@ namespace TestMate.Runner.BackgroundServices
                         string appiumServerUrl = $"{appiumService.ServiceUrl.AbsoluteUri}";
 
                         appiumService.Start();
+                        
+                        appiumStartupWatch.Stop();
+                        _logger.LogInformation($"[PROBE-APPIUM-SERVER] [Device - {device.SerialNumber}] [Thread {currentThread.ManagedThreadId}] - Appium Server for Test Run {testRun.Id} started in {appiumStartupWatch.ElapsedMilliseconds} ms");
 
                         /* RUNNING VIA NUNIT TESTPACKAGE TECHNIQUE 
                         // Initialize the test engine
@@ -238,6 +279,8 @@ namespace TestMate.Runner.BackgroundServices
                         remoteTestRunner.Load(testPackage);
                         TestResult testResult = remoteTestRunner.Run(listener: null, TestFilter.Empty, true, LoggingThreshold.All);
                         */
+
+                        testExecutionWatch.Start();
 
                         string arguments =  $"\"{testRun.TestExecutablePath}\"" +
                                             $" --work=\"{workingFolder}\"" +
@@ -295,6 +338,7 @@ namespace TestMate.Runner.BackgroundServices
                     finally
                     {
                         _deviceManager.ReleaseDevice(device);
+                        _logger.LogInformation($"[Thread {currentThread.ManagedThreadId}] - Device {device.SerialNumber} Released. - Elapsed {testExecutionWatch.ElapsedMilliseconds}");
                         await updateDeviceStatus(device, DeviceStatus.Connected);
                         await updateTestRequestStatusAfterTestRun(testRun.TestRequestID);
                         if (appiumService != null)
@@ -307,6 +351,11 @@ namespace TestMate.Runner.BackgroundServices
                             GenerateExtentTestReport(workingPath: workingFolder);
                             GenerateNUnit3TestReport(workingPath: workingFolder);
                         }
+
+                        testExecutionWatch.Stop();
+                        _logger.LogInformation($"[PROBE-TEST-EXECUTION] [Thread {currentThread.ManagedThreadId}] - Test Run {testRun.Id} executed on {device.SerialNumber} in {testExecutionWatch.ElapsedMilliseconds} ms");
+
+
                     }
                     return true;
                 }
@@ -506,8 +555,6 @@ namespace TestMate.Runner.BackgroundServices
              
             await _devicesCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = false });
         }
-
-
         public void GenerateNUnit3TestReport(string workingPath)
         {
             try

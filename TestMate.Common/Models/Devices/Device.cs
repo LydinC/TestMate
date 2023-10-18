@@ -114,15 +114,13 @@ namespace TestMate.Common.Models.Devices
             string keycode = max ? "KEYCODE_VOLUME_UP" : "KEYCODE_VOLUME_DOWN";
 
             string command = $"-s {this.IP}:{this.TcpIpPort} shell input keyevent {keycode}";
-            for(int i =0; i < 20; i++)
+            for (int i = 0; i < 20; i++)
             {
                 string output = ConnectivityUtil.ExecuteADBCommand(command);
-                if(output != "") { return false; }
+                if (output != "") { return false; }
             }
             return true;
         }
-
-
 
     }
 }
