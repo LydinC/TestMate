@@ -105,7 +105,7 @@ namespace TestMate.API.Services
                     return new APIResponse<string>(Status.Error, $"Test Run ID {id} does not exist.");
                 }
                 string htmlReportPath = $@"{HTMLReportPath}{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnit3TestReport.html";
-                  //  $@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestMate\TestMate.Runner\Logs\NUnit_TestResults\{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnit3TestReport.html";
+                //  $@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TestResults\{testRun.TestRequestID.ToString()}\{testRun.Id}\NUnit3TestReport.html";
                 if (File.Exists(htmlReportPath))
                 {
                     string fileContent = System.IO.File.ReadAllText(htmlReportPath);

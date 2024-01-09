@@ -13,6 +13,7 @@ using TestMate.Common.Enums;
 using TestMate.Common.Models.Developers;
 using TestMate.Common.Models.Devices;
 using TestMate.Common.Utils;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace TestMate.API.Services;
 public class DevicesService
@@ -145,10 +146,10 @@ public class DevicesService
             _logger.LogError($"[{Task.CurrentId}] - IP {deviceDTO.IP} is not reachable. Cannot connect!");
             return new APIResponse<Device>(Status.Error, $"IP {deviceDTO.IP} is not reachable. Cannot connect!");
         }
-
         int port;
         try
         {
+
             List<string> adbDevices = ConnectivityUtil.GetADBDevices();
 
             if (adbDevices == null || adbDevices.Count == 0)

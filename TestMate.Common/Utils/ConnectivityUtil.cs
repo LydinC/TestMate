@@ -17,7 +17,6 @@ namespace TestMate.Common.Utils
 {
     public class ConnectivityUtil
     {
-
         public static string adbPath = "C:\\Users\\lydin.camilleri\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe";
 
         public static bool IsIpReachable(string ip, int timeoutInMs)
@@ -299,7 +298,7 @@ namespace TestMate.Common.Utils
                 
                 if(process.ExitCode != 0){
                     string error = process.StandardError.ReadToEnd().Trim();
-                    File.AppendAllText(@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\IIS\TestMateAPI\Logs\TEST.txt", "Command: " + command + "; Output: " + output + "; Error: " + error);
+                    File.AppendAllText(@"C:\Users\lydin.camilleri\Desktop\Master's Code Repo\TEST.txt", "\n\n Command: " + command + "; Output: " + output + "; Error: " + error);
                     throw new Exception($"Error in Executing ADB Command: {error}");
                 }
             }

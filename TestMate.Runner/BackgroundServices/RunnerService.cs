@@ -33,7 +33,7 @@ namespace TestMate.Runner.BackgroundServices
         int TestRunRetryLimit = 3;
         int testCaseTimeoutInMs = 30000; //5 minutes
         ushort queuePrefetchSize = 250;
-        int processDelay = 5; //minutes
+        int processDelay = 1; //minutes
 
         public RunnerService(ILogger<RunnerService> logger, IMongoDatabase database, IConnection connection, IModel channel, IConfiguration configuration, DeviceManager deviceManager)
         {

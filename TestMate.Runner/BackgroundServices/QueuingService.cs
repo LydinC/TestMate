@@ -144,7 +144,7 @@ namespace TestMate.Runner.BackgroundServices
                                     basicProperties: null,
                                     body: body
                                     );
-                                //_logger.LogInformation("Published TestRun Counter " + counter + " successfully! - " + watch.ElapsedMilliseconds);
+                                _logger.LogInformation("Published TestRun Counter " + counter + " successfully! - " + watch.ElapsedMilliseconds);
                             }
                             catch (Exception ex)
                             {
